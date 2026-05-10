@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Quiz Generator</title>
+</head>
+<body>
+
+<h2>AI Quiz Generator</h2>
+
+<textarea id="source" rows="10" cols="80"
+placeholder="Paste lesson text here..."></textarea>
+<br><br>
+
+<button onclick="generate()">Generate Quiz</button>
+
+<pre id="output"></pre>
+
+<script>
+async function generate() {
+  const source = document.getElementById("source").value;
+
+  const response = await fetch("/.netlify/functions/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source })
+  });
+
+  const data = await response.json();
+  document.getElementById("output").innerText = data.quiz;
+}
+</script>
+
+</body>
+</html>

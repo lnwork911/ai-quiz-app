@@ -1,20 +1,33 @@
 import OpenAI from "openai";
+import { Redis } from "@upstash/redis";
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 export async function handler(event) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    const { source, userId } = JSON.parse(event.body);
+
+    if (!userId) {
       return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Missing OPENAI_API_KEY" })
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing userId" })
       };
     }
 
-    const { source } = JSON.parse(event.body);
+    // Initialize user credits if not exists
+    let credits = await redis.get(`credits:${userId}`);
+    if (credits === null) {
+      credits = 10;
+      await redis.set(`credits:${userId}`, credits);
+    }
 
-    if (!source) {
+    if (credits <= 0) {
       return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "No source text provided" })
+        statusCode: 403,
+        body: JSON.stringify({ error: "No credits remaining" })
       };
     }
 
@@ -36,19 +49,22 @@ export async function handler(event) {
       messages: [{ role: "user", content: prompt }],
     });
 
+    // Deduct credit
+    credits -= 1;
+    await redis.set(`credits:${userId}`, credits);
+
     return {
       statusCode: 200,
       body: JSON.stringify({
-        quiz: completion.choices[0].message.content
+        quiz: completion.choices[0].message.content,
+        remainingCredits: credits
       })
     };
 
   } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        error: error.message
-      })
+      body: JSON.stringify({ error: error.message })
     };
   }
 }

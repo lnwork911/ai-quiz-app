@@ -16,22 +16,42 @@ placeholder="Paste lesson text here..."></textarea>
 <pre id="output"></pre>
 
 <script>
+// Generate simple random ID
+function generateUserId() {
+  return "user_" + Math.random().toString(36).substring(2, 12);
+}
+
+// Get or create userId
+function getUserId() {
+  let userId = localStorage.getItem("userId");
+  if (!userId) {
+    userId = generateUserId();
+    localStorage.setItem("userId", userId);
+  }
+  return userId;
+}
+
 async function generate() {
   const source = document.getElementById("source").value;
+  const userId = getUserId();
 
   const response = await fetch("/.netlify/functions/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      source,
-      userId: "teacher123"
-    })
+    body: JSON.stringify({ source, userId })
   });
-  
+
   const data = await response.json();
-  console.log(data);
-  document.getElementById("output").innerText = data.quiz;
+
+  if (data.error) {
+    document.getElementById("output").innerText = data.error;
+    return;
+  }
+
+  document.getElementById("output").innerText =
+    data.quiz + "\n\nRemaining Credits: " + data.remainingCredits;
 }
+
 </script>
 
 </body>

@@ -8,16 +8,25 @@ const redis = new Redis({
 
 export async function handler(event) {
   try {
+
+    // 
     const { source, userId } = JSON.parse(event.body);
 
     if (!userId) {
       return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Missing userId" })
+        statusCode: 401,
+        body: JSON.stringify({ error: "Unauthorized" })
       };
     }
 
-    // Initialize user credits if not exists
+    if (!source) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "No source text provided" })
+      };
+    }
+
+    // Get credits from Redis
     let credits = await redis.get(`credits:${userId}`);
     if (credits === null) {
       credits = 10;
@@ -49,7 +58,6 @@ export async function handler(event) {
       messages: [{ role: "user", content: prompt }],
     });
 
-    // Deduct credit
     credits -= 1;
     await redis.set(`credits:${userId}`, credits);
 

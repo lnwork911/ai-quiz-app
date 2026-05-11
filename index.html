@@ -6,6 +6,11 @@
 <body>
 
 <h2>AI Quiz Generator</h2>
+<div>
+  <button onclick="netlifyIdentity.open()">Login / Signup</button>
+  <button onclick="logout()">Logout</button>
+  <p id="userEmail"></p>
+</div>
 
 <textarea id="source" rows="10" cols="80"
 placeholder="Paste lesson text here..."></textarea>
@@ -15,30 +20,47 @@ placeholder="Paste lesson text here..."></textarea>
 
 <pre id="output"></pre>
 
-<script>
-// Generate simple random ID
-function generateUserId() {
-  return "user_" + Math.random().toString(36).substring(2, 12);
-}
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 
-// Get or create userId
-function getUserId() {
-  let userId = localStorage.getItem("userId");
-  if (!userId) {
-    userId = generateUserId();
-    localStorage.setItem("userId", userId);
+<script>
+
+let currentUser = null;
+
+netlifyIdentity.on("init", user => {
+  if (user) {
+    currentUser = user;
+    document.getElementById("userEmail").innerText =
+      "Logged in as: " + user.email;
   }
-  return userId;
+});
+
+netlifyIdentity.on("login", user => {
+  currentUser = user;
+  document.getElementById("userEmail").innerText =
+    "Logged in as: " + user.email;
+  netlifyIdentity.close();
+});
+
+function logout() {
+  netlifyIdentity.logout();
+  location.reload();
 }
 
 async function generate() {
+  if (!currentUser) {
+    alert("Please login first.");
+    return;
+  }
+
   const source = document.getElementById("source").value;
-  const userId = getUserId();
 
   const response = await fetch("/.netlify/functions/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source, userId })
+    body: JSON.stringify({
+      source,
+      userId: currentUser.id
+    })
   });
 
   const data = await response.json();
@@ -53,6 +75,5 @@ async function generate() {
 }
 
 </script>
-
 </body>
 </html>

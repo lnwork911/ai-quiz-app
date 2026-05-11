@@ -6,10 +6,12 @@
 <body>
 
 <h2>AI Quiz Generator</h2>
+
 <div>
   <button onclick="netlifyIdentity.open()">Login / Signup</button>
   <button onclick="logout()">Logout</button>
   <p id="userEmail"></p>
+  <p id="creditDisplay"></p>
 </div>
 
 <textarea id="source" rows="10" cols="80"
@@ -25,6 +27,9 @@ placeholder="Paste lesson text here..."></textarea>
 <script>
 
 let currentUser = null;
+let quizData = [];
+let currentIndex = 0;
+let score = 0;
 
 netlifyIdentity.on("init", user => {
   if (user) {
@@ -47,6 +52,7 @@ function logout() {
 }
 
 async function generate() {
+
   if (!currentUser) {
     alert("Please login first.");
     return;
@@ -56,7 +62,7 @@ async function generate() {
 
   const response = await fetch("/.netlify/functions/generate", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
       source,
       userId: currentUser.id
@@ -70,8 +76,59 @@ async function generate() {
     return;
   }
 
-  document.getElementById("output").innerText =
-    data.quiz + "\n\nRemaining Credits: " + data.remainingCredits;
+  quizData = data.quiz.questions;
+  currentIndex = 0;
+  score = 0;
+
+  document.getElementById("creditDisplay").innerText =
+    "Remaining Credits: " + data.remainingCredits;
+
+  showQuestion();
+}
+
+function showQuestion() {
+  if (currentIndex >= quizData.length) {
+    document.getElementById("output").innerHTML =
+      `<h3>Quiz Finished!</h3>
+       <p>Score: ${score} / ${quizData.length}</p>`;
+    return;
+  }
+
+  const q = quizData[currentIndex];
+
+  let html = `<h3>Question ${currentIndex + 1}</h3>`;
+  html += `<p>${q.question}</p>`;
+
+  q.options.forEach((option, index) => {
+    html += `
+      <button onclick="checkAnswer(${index})">
+        ${option}
+      </button><br><br>
+    `;
+  });
+
+  document.getElementById("output").innerHTML = html;
+}
+
+function checkAnswer(selectedIndex) {
+  const q = quizData[currentIndex];
+  let feedback = "";
+
+  if (selectedIndex === q.correctIndex) {
+    feedback = "<p style='color:green;'>Correct!</p>";
+    score++;
+  } else {
+    feedback = "<p style='color:red;'>Incorrect.</p>";
+  }
+
+  feedback += `<p>${q.explanation}</p>`;
+
+  document.getElementById("output").innerHTML += feedback;
+
+  setTimeout(() => {
+    currentIndex++;
+    showQuestion();
+  }, 5000);
 }
 
 </script>

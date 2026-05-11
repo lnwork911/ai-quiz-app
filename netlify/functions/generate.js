@@ -45,13 +45,31 @@ export async function handler(event) {
     });
 
     const prompt = `
-    Create 5 professional multiple choice questions from this text.
-    Do NOT cut sentences.
-    Provide 4 options.
-    Clearly mark correct answer.
-    Text:
-    ${source}
-    `;
+Create 10 multiple choice questions from the text.
+
+Rules:
+- Do NOT cut sentences.
+- Each question must test understanding.
+- 4 options per question.
+- Provide correct answer letter.
+- Provide short explanation for the answer.
+
+Return STRICT JSON format like this:
+
+{
+  "questions": [
+    {
+      "question": "text",
+      "options": ["A text", "B text", "C text", "D text"],
+      "correctIndex": 1,
+      "explanation": "short reason"
+    }
+  ]
+}
+
+Text:
+${source}
+`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
@@ -64,7 +82,7 @@ export async function handler(event) {
     return {
       statusCode: 200,
       body: JSON.stringify({
-        quiz: completion.choices[0].message.content,
+        quiz: JSON.parse(completion.choices[0].message.content),
         remainingCredits: credits
       })
     };

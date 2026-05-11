@@ -26,6 +26,7 @@ async function generate() {
   });
 
   const data = await response.json();
+  console.log(data);
   document.getElementById("output").innerText = data.quiz;
 }
 </script>

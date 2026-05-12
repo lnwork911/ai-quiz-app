@@ -177,12 +177,38 @@ async function setRole(){
   alert("Role updated");
 }
 
-async function createClass(){
-  const res=await fetch("/.netlify/functions/createClass",{method:"POST",
-  headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({userId:currentUser.id})});
-  const data=await res.json();
-  classDisplay.innerText="Class ID: "+data.classId;
+netlifyIdentity.on("init", user => {
+  if (user) {
+    currentUser = user;
+    document.getElementById("userEmail").innerText =
+      "Logged in: " + user.email;
+  }
+});
+
+async function createClass() {
+
+  if (!currentUser) {
+    alert("Please login first.");
+    return;
+  }
+
+  const response = await fetch("/.netlify/functions/createClass", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      userId: currentUser.id
+    })
+  });
+
+  const data = await response.json();
+
+  if (data.error) {
+    alert(data.error);
+    return;
+  }
+
+  document.getElementById("classDisplay").innerText =
+    "Class ID: " + data.classId;
 }
 
 async function joinClass(){

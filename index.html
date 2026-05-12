@@ -1,302 +1,155 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Learnistry - AI Quiz Platform</title>
+<title>Learnistry</title>
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  margin: 0;
-  background: #f5f7fb;
-}
-
-header {
-  background: #1e2a4a;
-  color: white;
-  padding: 20px;
-  text-align: center;
-}
-
-.container {
-  max-width: 900px;
-  margin: 30px auto;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-}
-
-textarea {
-  width: 100%;
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-}
-
-button {
-  background: #1e2a4a;
-  color: white;
-  padding: 10px 18px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  margin-top: 10px;
-}
-
-button:hover {
-  background: #2d3c6b;
-}
-
-.option-btn {
-  display: block;
-  width: 100%;
-  margin: 8px 0;
-  text-align: left;
-}
-
-.correct { color: green; }
-.wrong { color: red; }
-
-.review-box {
-  border-top: 1px solid #ddd;
-  padding-top: 15px;
-  margin-top: 20px;
-}
+body { font-family: Arial; margin:0; background:#f4f6fa;}
+header { background:#1e2a4a; color:white; padding:20px; text-align:center;}
+.container { max-width:900px; margin:30px auto; background:white; padding:20px; border-radius:8px;}
+textarea { width:100%; padding:10px;}
+button { background:#1e2a4a; color:white; padding:10px 15px; border:none; margin:5px 0; cursor:pointer;}
+.option-btn { display:block; width:100%; margin:8px 0; text-align:left;}
+.progress { height:10px; background:#ddd; border-radius:5px;}
+.progress-bar { height:10px; background:#1e2a4a; border-radius:5px;}
+.correct { color:green;}
+.wrong { color:red;}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Learnistry</h1>
-  <p>AI-powered Quiz Generator for Teachers & Students</p>
+<h1>Learnistry</h1>
+<p>AI Quiz Platform</p>
 </header>
 
 <div class="container">
 
-<div>
-  <button onclick="netlifyIdentity.open()">Login / Signup</button>
-  <button onclick="logout()">Logout</button>
-  <p id="userEmail"></p>
-  <p id="creditDisplay"></p>
-</div>
+<button onclick="netlifyIdentity.open()">Login</button>
+<button onclick="logout()">Logout</button>
+<p id="userEmail"></p>
+<p id="creditDisplay"></p>
 
-<h3>Paste Lesson Text</h3>
-<textarea id="source" rows="8" placeholder="Paste lesson text here..."></textarea>
+<label>Difficulty:</label>
+<select id="difficulty">
+<option value="easy">Easy</option>
+<option value="medium" selected>Medium</option>
+<option value="hard">Hard</option>
+</select>
+
+<textarea id="source" rows="6" placeholder="Paste lesson text"></textarea>
 <button onclick="generate()">Generate Quiz</button>
+<button onclick="pauseQuiz()">Pause</button>
+<button onclick="resumeQuiz()">Resume</button>
 
 <div id="quizArea"></div>
 
 </div>
 
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <script>
+let currentUser=null,quizData=[],userAnswers=[],currentIndex=0,score=0,timerInterval,timeLeft=20,isPaused=false;
 
-let currentUser = null;
-let quizData = [];
-let userAnswers = [];
-let currentIndex = 0;
-let score = 0;
-let timerInterval;
-let timeLeft = 20; // seconds per question
+netlifyIdentity.on("init",user=>{if(user){currentUser=user;userEmail.innerText="Logged in: "+user.email;}});
+netlifyIdentity.on("login",user=>{currentUser=user;userEmail.innerText="Logged in: "+user.email;netlifyIdentity.close();});
+function logout(){netlifyIdentity.logout();location.reload();}
 
-// LOGIN
-netlifyIdentity.on("init", user => {
-  if (user) {
-    currentUser = user;
-    document.getElementById("userEmail").innerText =
-      "Logged in as: " + user.email;
-  }
+async function generate(){
+if(!currentUser){alert("Login first");return;}
+const source=source.value;
+const difficulty=document.getElementById("difficulty").value;
+
+const res=await fetch("/.netlify/functions/generate",{method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({source,userId:currentUser.id,difficulty})});
+
+const data=await res.json();
+if(data.error){quizArea.innerText=data.error;return;}
+
+quizData=data.quiz.questions.map(q=>shuffleQuestion(q));
+userAnswers=[];currentIndex=0;score=0;
+creditDisplay.innerText="Credits: "+data.remainingCredits;
+showQuestion();
+}
+
+function shuffleQuestion(q){
+let options=[...q.options];
+let correct=options[q.correctIndex];
+options.sort(()=>Math.random()-0.5);
+return {...q,options,correctIndex:options.indexOf(correct)};
+}
+
+function showQuestion(){
+if(currentIndex>=quizData.length){finishQuiz();return;}
+let progress=(currentIndex/quizData.length)*100;
+let q=quizData[currentIndex];
+
+quizArea.innerHTML=`
+<div class="progress"><div class="progress-bar" style="width:${progress}%"></div></div>
+<p>Question ${currentIndex+1}/${quizData.length}</p>
+<p>Time: <span id="timer">20</span>s</p>
+<h3>${q.question}</h3>
+${q.options.map((o,i)=>`<button class="option-btn" onclick="checkAnswer(${i})">${o}</button>`).join("")}
+`;
+startTimer();
+}
+
+function startTimer(){
+timeLeft=20;
+timerInterval=setInterval(()=>{
+if(isPaused)return;
+timeLeft--;
+timer.innerText=timeLeft;
+if(timeLeft<=0){clearInterval(timerInterval);userAnswers.push(null);currentIndex++;showQuestion();}
+},1000);
+}
+
+function checkAnswer(i){
+clearInterval(timerInterval);
+userAnswers.push(i);
+if(i===quizData[currentIndex].correctIndex)score++;
+currentIndex++;showQuestion();
+}
+
+function pauseQuiz(){isPaused=true;}
+function resumeQuiz(){isPaused=false;}
+
+async function finishQuiz(){
+let weak=[];
+let html=`<h2>Score ${score}/${quizData.length}</h2>`;
+
+quizData.forEach((q,i)=>{
+let ua=userAnswers[i];
+let correct=ua===q.correctIndex;
+if(!correct)weak.push(q.question);
+html+=`
+<p><strong>${q.question}</strong></p>
+<p class="${correct?'correct':'wrong'}">
+Your: ${ua!==null?q.options[ua]:"No answer"}
+</p>
+<p class="correct">Correct: ${q.options[q.correctIndex]}</p>
+<p>${q.explanation}</p><hr>
+`;
 });
 
-netlifyIdentity.on("login", user => {
-  currentUser = user;
-  document.getElementById("userEmail").innerText =
-    "Logged in as: " + user.email;
-  netlifyIdentity.close();
-});
-
-function logout() {
-  netlifyIdentity.logout();
-  location.reload();
+if(weak.length>0){
+html+=`<h3>Recommended Review:</h3><ul>${weak.map(w=>`<li>${w}</li>`).join("")}</ul>`;
 }
 
-// GENERATE QUIZ
-async function generate() {
+html+=`<button onclick="exportPDF()">Export PDF</button>`;
+quizArea.innerHTML=html;
 
-  if (!currentUser) {
-    alert("Please login first.");
-    return;
-  }
-
-  const source = document.getElementById("source").value;
-
-  const response = await fetch("/.netlify/functions/generate", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      source,
-      userId: currentUser.id
-    })
-  });
-
-  const data = await response.json();
-
-  if (data.error) {
-    document.getElementById("quizArea").innerText = data.error;
-    return;
-  }
-
-  quizData = data.quiz.questions.map(q => shuffleQuestion(q));
-  userAnswers = [];
-  currentIndex = 0;
-  score = 0;
-
-  document.getElementById("creditDisplay").innerText =
-    "Remaining Credits: " + data.remainingCredits;
-
-  showQuestion();
+await fetch("/.netlify/functions/saveResult",{method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({userId:currentUser.id,score,total:quizData.length})});
 }
 
-// RANDOMIZE OPTIONS
-function shuffleQuestion(question) {
-  let options = [...question.options];
-  let correctAnswer = options[question.correctIndex];
+function exportPDF(){html2pdf().from(quizArea).save("quiz-results.pdf");}
 
-  options.sort(() => Math.random() - 0.5);
-
-  return {
-    ...question,
-    options: options,
-    correctIndex: options.indexOf(correctAnswer)
-  };
-}
-
-// SHOW QUESTION
-function showQuestion() {
-
-  if (currentIndex >= quizData.length) {
-    showFinalResults();
-    return;
-  }
-
-  const q = quizData[currentIndex];
-
-  let progress = ((currentIndex) / quizData.length) * 100;
-
-  let html = `
-    <div style="background:#ddd;height:10px;border-radius:6px;">
-      <div style="background:#1e2a4a;height:10px;width:${progress}%;border-radius:6px;"></div>
-    </div>
-    <p>Question ${currentIndex + 1} of ${quizData.length}</p>
-    <p><strong>Time Left:</strong> <span id="timer">${timeLeft}</span>s</p>
-    <h3>${q.question}</h3>
-  `;
-
-  q.options.forEach((option, index) => {
-    html += `
-      <button class="option-btn"
-        onclick="checkAnswer(${index})">
-        ${option}
-      </button>`;
-  });
-
-  document.getElementById("quizArea").innerHTML = html;
-
-  startTimer();
-}
-
-// TIMER
-function startTimer() {
-  timeLeft = 20;
-  document.getElementById("timer").innerText = timeLeft;
-
-  timerInterval = setInterval(() => {
-    timeLeft--;
-    document.getElementById("timer").innerText = timeLeft;
-
-    if (timeLeft <= 0) {
-      clearInterval(timerInterval);
-      userAnswers.push(null); // unanswered
-      currentIndex++;
-      showQuestion();
-    }
-
-  }, 1000);
-}
-
-// CHECK ANSWER
-function checkAnswer(selectedIndex) {
-
-  clearInterval(timerInterval);
-
-  const q = quizData[currentIndex];
-  userAnswers.push(selectedIndex);
-
-  if (selectedIndex === q.correctIndex) {
-    score++;
-  }
-
-  currentIndex++;
-  showQuestion();
-}
-
-// FINAL RESULTS
-function showFinalResults() {
-
-  let html = `<h2>Quiz Completed</h2>`;
-  html += `<h3>Score: ${score} / ${quizData.length}</h3>`;
-
-  html += `<div class="review-box"><h3>Review</h3>`;
-
-  let weakTopics = [];
-
-  quizData.forEach((q, index) => {
-
-    const userAnswer = userAnswers[index];
-    const correct = userAnswer === q.correctIndex;
-
-    html += `<p><strong>Q${index+1}:</strong> ${q.question}</p>`;
-
-    if (userAnswer === null) {
-      html += `<p class="wrong">No answer selected</p>`;
-      weakTopics.push(q.question);
-    } else {
-      html += `<p class="${correct ? 'correct' : 'wrong'}">
-        Your Answer: ${q.options[userAnswer]}
-      </p>`;
-
-      if (!correct) {
-        weakTopics.push(q.question);
-      }
-    }
-
-    html += `<p class="correct">
-      Correct Answer: ${q.options[q.correctIndex]}
-    </p>`;
-
-    html += `<p><em>Explanation:</em> ${q.explanation}</p><hr>`;
-  });
-
-  html += `</div>`;
-
-  if (weakTopics.length > 0) {
-    html += `
-      <div class="review-box">
-      <h3>Recommended Review Topics</h3>
-      <ul>
-        ${weakTopics.map(q => `<li>${q}</li>`).join("")}
-      </ul>
-      </div>
-    `;
-  }
-
-  document.getElementById("quizArea").innerHTML = html;
-}
-
+document.addEventListener("copy",e=>e.preventDefault());
+document.addEventListener("visibilitychange",()=>{if(document.hidden)alert("Tab switch detected");});
 </script>
-
 </body>
 </html>

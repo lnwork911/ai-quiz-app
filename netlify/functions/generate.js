@@ -9,7 +9,6 @@ const redis = new Redis({
 
 export async function handler(event) {
   try {
-
     // Parse request body safely
     const body = JSON.parse(event.body || "{}");
     const { source, userId, difficulty = "medium", classId = "default" } = body;
@@ -29,7 +28,15 @@ export async function handler(event) {
       };
     }
 
-    // Check user exists in Redis
+    // Check environment variables
+    if (!process.env.OPENAI_API_KEY) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "OPENAI_API_KEY missing" })
+      };
+    }
+
+    // Check user exists
     const userRaw = await redis.get(`users:${userId}`);
 
     if (!userRaw) {
@@ -41,7 +48,7 @@ export async function handler(event) {
 
     const user = JSON.parse(userRaw);
 
-    // Only teachers can generate quizzes
+    // Role check
     if (user.role !== "teacher") {
       return {
         statusCode: 403,
@@ -49,13 +56,12 @@ export async function handler(event) {
       };
     }
 
-    // Create reuse detection hash
+    // Quiz reuse detection
     const hash = crypto
       .createHash("sha256")
       .update(source + difficulty)
       .digest("hex");
 
-    // Check if quiz already exists
     const existingQuiz = await redis.get(`quizHash:${hash}`);
 
     if (existingQuiz) {
@@ -68,19 +74,11 @@ export async function handler(event) {
       };
     }
 
-    // Ensure API key exists
-    if (!process.env.OPENAI_API_KEY) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "OPENAI_API_KEY missing in environment" })
-      };
-    }
-
+    // Call OpenAI
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
     });
 
-    // Build prompt
     const prompt = `
 Create 10 ${difficulty} difficulty multiple choice questions.
 
@@ -91,7 +89,7 @@ Rules:
 - Include correctIndex (0–3).
 - Include short explanation.
 
-Return strict JSON format:
+Return STRICT JSON:
 
 {
   "questions": [
@@ -113,21 +111,25 @@ ${source}
       messages: [{ role: "user", content: prompt }]
     });
 
-    // Safe JSON parsing (fixes [object Object] error)
+    // SAFE JSON PARSING
     let parsed;
-    const content = completion.choices[0].message.content;
+    const message = completion.choices[0].message;
 
-    if (typeof content === "string") {
-      const cleaned = content.replace(/```json|```/g, "");
+    if (typeof message.content === "string") {
+      const cleaned = message.content
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+
       parsed = JSON.parse(cleaned);
+    } else if (typeof message.content === "object") {
+      parsed = message.content;
     } else {
-      parsed = content;
+      throw new Error("Unexpected OpenAI response format");
     }
 
     // Store quiz for reuse
     await redis.set(`quizHash:${hash}`, JSON.stringify(parsed));
-
-    // Optional: store quiz under class
     await redis.rpush(`classQuizzes:${classId}`, hash);
 
     return {

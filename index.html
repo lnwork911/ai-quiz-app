@@ -99,7 +99,10 @@ let quizData = [];
 let userAnswers = [];
 let currentIndex = 0;
 let score = 0;
+let timerInterval;
+let timeLeft = 20; // seconds per question
 
+// LOGIN
 netlifyIdentity.on("init", user => {
   if (user) {
     currentUser = user;
@@ -120,6 +123,7 @@ function logout() {
   location.reload();
 }
 
+// GENERATE QUIZ
 async function generate() {
 
   if (!currentUser) {
@@ -145,7 +149,7 @@ async function generate() {
     return;
   }
 
-  quizData = data.quiz.questions;
+  quizData = data.quiz.questions.map(q => shuffleQuestion(q));
   userAnswers = [];
   currentIndex = 0;
   score = 0;
@@ -156,7 +160,23 @@ async function generate() {
   showQuestion();
 }
 
+// RANDOMIZE OPTIONS
+function shuffleQuestion(question) {
+  let options = [...question.options];
+  let correctAnswer = options[question.correctIndex];
+
+  options.sort(() => Math.random() - 0.5);
+
+  return {
+    ...question,
+    options: options,
+    correctIndex: options.indexOf(correctAnswer)
+  };
+}
+
+// SHOW QUESTION
 function showQuestion() {
+
   if (currentIndex >= quizData.length) {
     showFinalResults();
     return;
@@ -164,8 +184,16 @@ function showQuestion() {
 
   const q = quizData[currentIndex];
 
-  let html = `<h3>Question ${currentIndex + 1}</h3>`;
-  html += `<p>${q.question}</p>`;
+  let progress = ((currentIndex) / quizData.length) * 100;
+
+  let html = `
+    <div style="background:#ddd;height:10px;border-radius:6px;">
+      <div style="background:#1e2a4a;height:10px;width:${progress}%;border-radius:6px;"></div>
+    </div>
+    <p>Question ${currentIndex + 1} of ${quizData.length}</p>
+    <p><strong>Time Left:</strong> <span id="timer">${timeLeft}</span>s</p>
+    <h3>${q.question}</h3>
+  `;
 
   q.options.forEach((option, index) => {
     html += `
@@ -176,9 +204,34 @@ function showQuestion() {
   });
 
   document.getElementById("quizArea").innerHTML = html;
+
+  startTimer();
 }
 
+// TIMER
+function startTimer() {
+  timeLeft = 20;
+  document.getElementById("timer").innerText = timeLeft;
+
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById("timer").innerText = timeLeft;
+
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      userAnswers.push(null); // unanswered
+      currentIndex++;
+      showQuestion();
+    }
+
+  }, 1000);
+}
+
+// CHECK ANSWER
 function checkAnswer(selectedIndex) {
+
+  clearInterval(timerInterval);
+
   const q = quizData[currentIndex];
   userAnswers.push(selectedIndex);
 
@@ -190,36 +243,41 @@ function checkAnswer(selectedIndex) {
   showQuestion();
 }
 
+// FINAL RESULTS
 function showFinalResults() {
 
   let html = `<h2>Quiz Completed</h2>`;
   html += `<h3>Score: ${score} / ${quizData.length}</h3>`;
 
-  html += `<div class="review-box"><h3>Review Answers</h3>`;
+  html += `<div class="review-box"><h3>Review</h3>`;
 
   let weakTopics = [];
 
   quizData.forEach((q, index) => {
 
-    const correct = q.correctIndex === userAnswers[index];
-    const statusClass = correct ? "correct" : "wrong";
+    const userAnswer = userAnswers[index];
+    const correct = userAnswer === q.correctIndex;
 
     html += `<p><strong>Q${index+1}:</strong> ${q.question}</p>`;
-    html += `<p class="${statusClass}">
-      Your Answer: ${q.options[userAnswers[index]]}
-    </p>`;
+
+    if (userAnswer === null) {
+      html += `<p class="wrong">No answer selected</p>`;
+      weakTopics.push(q.question);
+    } else {
+      html += `<p class="${correct ? 'correct' : 'wrong'}">
+        Your Answer: ${q.options[userAnswer]}
+      </p>`;
+
+      if (!correct) {
+        weakTopics.push(q.question);
+      }
+    }
 
     html += `<p class="correct">
       Correct Answer: ${q.options[q.correctIndex]}
     </p>`;
 
-    html += `<p><em>Explanation:</em> ${q.explanation}</p>`;
-
-    if (!correct) {
-      weakTopics.push(q.question);
-    }
-
-    html += "<hr>";
+    html += `<p><em>Explanation:</em> ${q.explanation}</p><hr>`;
   });
 
   html += `</div>`;
@@ -227,18 +285,10 @@ function showFinalResults() {
   if (weakTopics.length > 0) {
     html += `
       <div class="review-box">
-      <h3>Recommended Review</h3>
-      <p>You may want to review concepts related to:</p>
+      <h3>Recommended Review Topics</h3>
       <ul>
         ${weakTopics.map(q => `<li>${q}</li>`).join("")}
       </ul>
-      </div>
-    `;
-  } else {
-    html += `
-      <div class="review-box">
-      <h3>Excellent Work!</h3>
-      <p>You demonstrated strong understanding of the material.</p>
       </div>
     `;
   }

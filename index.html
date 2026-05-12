@@ -69,7 +69,6 @@ button { background:#1e2a4a; color:white; padding:10px 15px; border:none; margin
 
 <script>
 let currentUser=null,quizData=[],userAnswers=[],currentIndex=0,score=0,timerInterval,timeLeft=20,isPaused=false;
-let currentUser = null;
 
 netlifyIdentity.on("init", user => {
   if (user) {

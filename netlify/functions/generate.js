@@ -8,67 +8,144 @@ const redis = new Redis({
 });
 
 export async function handler(event) {
-  const { source, userId, difficulty, classId } = JSON.parse(event.body);
+  try {
 
-  if (!userId) {
-    return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }) };
-  }
+    // Parse request body safely
+    const body = JSON.parse(event.body || "{}");
+    const { source, userId, difficulty = "medium", classId = "default" } = body;
 
-  const user = await redis.get(`users:${userId}`);
-  if (!user) {
-    await redis.set(`users:${userId}`, JSON.stringify({ role: "student" }));
-  }
+    // Basic validation
+    if (!userId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing userId" })
+      };
+    }
 
-  const parsedUser = user ? JSON.parse(user) : { role: "student" };
+    if (!source) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing source text" })
+      };
+    }
 
-  if (parsedUser.role !== "teacher") {
-    return {
-      statusCode: 403,
-      body: JSON.stringify({ error: "Only teachers can generate quizzes" })
-    };
-  }
+    // Check user exists in Redis
+    const userRaw = await redis.get(`users:${userId}`);
 
-  // QUIZ REUSE DETECTION
-  const hash = crypto
-    .createHash("sha256")
-    .update(source + difficulty)
-    .digest("hex");
+    if (!userRaw) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: "User not initialized" })
+      };
+    }
 
-  const existingQuiz = await redis.get(`quizHash:${hash}`);
+    const user = JSON.parse(userRaw);
 
-  if (existingQuiz) {
+    // Only teachers can generate quizzes
+    if (user.role !== "teacher") {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: "Only teachers can generate quizzes" })
+      };
+    }
+
+    // Create reuse detection hash
+    const hash = crypto
+      .createHash("sha256")
+      .update(source + difficulty)
+      .digest("hex");
+
+    // Check if quiz already exists
+    const existingQuiz = await redis.get(`quizHash:${hash}`);
+
+    if (existingQuiz) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          quiz: JSON.parse(existingQuiz),
+          reused: true
+        })
+      };
+    }
+
+    // Ensure API key exists
+    if (!process.env.OPENAI_API_KEY) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "OPENAI_API_KEY missing in environment" })
+      };
+    }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+
+    // Build prompt
+    const prompt = `
+Create 10 ${difficulty} difficulty multiple choice questions.
+
+Rules:
+- Do not cut sentences.
+- Each question must test understanding.
+- Provide 4 answer options.
+- Include correctIndex (0–3).
+- Include short explanation.
+
+Return strict JSON format:
+
+{
+  "questions": [
+    {
+      "question": "",
+      "options": ["", "", "", ""],
+      "correctIndex": 0,
+      "explanation": ""
+    }
+  ]
+}
+
+Text:
+${source}
+`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [{ role: "user", content: prompt }]
+    });
+
+    // Safe JSON parsing (fixes [object Object] error)
+    let parsed;
+    const content = completion.choices[0].message.content;
+
+    if (typeof content === "string") {
+      const cleaned = content.replace(/```json|```/g, "");
+      parsed = JSON.parse(cleaned);
+    } else {
+      parsed = content;
+    }
+
+    // Store quiz for reuse
+    await redis.set(`quizHash:${hash}`, JSON.stringify(parsed));
+
+    // Optional: store quiz under class
+    await redis.rpush(`classQuizzes:${classId}`, hash);
+
     return {
       statusCode: 200,
       body: JSON.stringify({
-        quiz: JSON.parse(existingQuiz),
-        reused: true
+        quiz: parsed,
+        reused: false
+      })
+    };
+
+  } catch (error) {
+    console.error("Generate Error:", error);
+
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: error.message
       })
     };
   }
-
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  const prompt = `
-  Create 10 ${difficulty} difficulty multiple choice questions.
-  Return strict JSON:
-  {"questions":[{"question":"","options":["","","",""],"correctIndex":0,"explanation":""}]}
-  Text:
-  ${source}
-  `;
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4.1-mini",
-    messages: [{ role: "user", content: prompt }]
-  });
-
-  const raw = completion.choices[0].message.content.replace(/```json|```/g, "");
-  const parsed = JSON.parse(raw);
-
-  await redis.set(`quizHash:${hash}`, JSON.stringify(parsed));
-  await redis.rpush(`classQuizzes:${classId}`, hash);
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ quiz: parsed, reused: false })
-  };
 }

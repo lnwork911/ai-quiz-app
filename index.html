@@ -99,11 +99,17 @@ netlifyIdentity.on("login", async user => {
 });
 
 function logout(){netlifyIdentity.logout();location.reload();}
-
+//const source=source.value;
+const sourceText = document.getElementById("source").value;
 async function generate(){
-if(!currentUser){alert("Login first");return;}
-const source=source.value;
-const difficulty=document.getElementById("difficulty").value;
+
+  if(!currentUser){
+    alert("Login first");
+    return;
+  }
+
+  const sourceText = document.getElementById("source").value;
+  const difficulty = document.getElementById("difficulty").value;
 
 const res=await fetch("/.netlify/functions/generate",{method:"POST",headers:{"Content-Type":"application/json"},
 body:JSON.stringify({source,userId:currentUser.id,difficulty})});

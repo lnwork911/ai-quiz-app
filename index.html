@@ -32,6 +32,22 @@ button { background:#1e2a4a; color:white; padding:10px 15px; border:none; margin
 <p id="userEmail"></p>
 <p id="creditDisplay"></p>
 
+<label>Role:</label>
+<select id="roleSelect">
+  <option value="student">Student</option>
+  <option value="teacher">Teacher</option>
+</select>
+
+<button onclick="setRole()">Set Role</button>
+
+<hr>
+
+<h3>Class</h3>
+<button onclick="createClass()">Create Class</button>
+<input id="classInput" placeholder="Enter class ID"/>
+<button onclick="joinClass()">Join Class</button>
+
+<p id="classDisplay"></p>
 <label>Difficulty:</label>
 <select id="difficulty">
 <option value="easy">Easy</option>
@@ -150,6 +166,32 @@ function exportPDF(){html2pdf().from(quizArea).save("quiz-results.pdf");}
 
 document.addEventListener("copy",e=>e.preventDefault());
 document.addEventListener("visibilitychange",()=>{if(document.hidden)alert("Tab switch detected");});
+
+async function setRole(){
+  const role=document.getElementById("roleSelect").value;
+  await fetch("/.netlify/functions/setRole",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({userId:currentUser.id,role})
+  });
+  alert("Role updated");
+}
+
+async function createClass(){
+  const res=await fetch("/.netlify/functions/createClass",{method:"POST",
+  headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({userId:currentUser.id})});
+  const data=await res.json();
+  classDisplay.innerText="Class ID: "+data.classId;
+}
+
+async function joinClass(){
+  const classId=classInput.value;
+  await fetch("/.netlify/functions/joinClass",{method:"POST",
+  headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({userId:currentUser.id,classId})});
+  alert("Joined class");
+}
 </script>
 </body>
 </html>

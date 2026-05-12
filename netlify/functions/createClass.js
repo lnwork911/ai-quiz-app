@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis";
-import crypto from "crypto";
+import { randomBytes } from "crypto";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -24,7 +24,7 @@ export async function handler(event) {
     if (!userRaw) {
       return {
         statusCode: 403,
-        body: JSON.stringify({ error: "User role not found" })
+        body: JSON.stringify({ error: "User not found in Redis" })
       };
     }
 
@@ -37,7 +37,7 @@ export async function handler(event) {
       };
     }
 
-    const classId = crypto.randomBytes(4).toString("hex");
+    const classId = randomBytes(4).toString("hex");
 
     await redis.set(`class:${classId}`, JSON.stringify({ teacherId: userId }));
     await redis.set(`classMembers:${classId}`, JSON.stringify([]));
@@ -48,6 +48,7 @@ export async function handler(event) {
     };
 
   } catch (error) {
+    console.error("CreateClass Error:", error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message })

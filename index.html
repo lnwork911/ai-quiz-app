@@ -69,9 +69,35 @@ button { background:#1e2a4a; color:white; padding:10px 15px; border:none; margin
 
 <script>
 let currentUser=null,quizData=[],userAnswers=[],currentIndex=0,score=0,timerInterval,timeLeft=20,isPaused=false;
+let currentUser = null;
+
+netlifyIdentity.on("init", user => {
+  if (user) {
+    currentUser = user;
+    document.getElementById("userEmail").innerText =
+      "Logged in: " + user.email;
+  }
+});
 
 netlifyIdentity.on("init",user=>{if(user){currentUser=user;userEmail.innerText="Logged in: "+user.email;}});
-netlifyIdentity.on("login",user=>{currentUser=user;userEmail.innerText="Logged in: "+user.email;netlifyIdentity.close();});
+netlifyIdentity.on("login", async user => {
+  currentUser = user;
+
+  document.getElementById("userEmail").innerText =
+    "Logged in: " + user.email;
+
+  await fetch("/.netlify/functions/initUser", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: user.id,
+      email: user.email
+    })
+  });
+
+  netlifyIdentity.close();
+});
+
 function logout(){netlifyIdentity.logout();location.reload();}
 
 async function generate(){

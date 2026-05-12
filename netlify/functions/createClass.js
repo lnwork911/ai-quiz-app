@@ -7,21 +7,50 @@ const redis = new Redis({
 });
 
 export async function handler(event) {
-  const { userId } = JSON.parse(event.body);
+  try {
 
-  const user = JSON.parse(await redis.get(`users:${userId}`));
+    const body = JSON.parse(event.body || "{}");
+    const userId = body.userId;
 
-  if (user.role !== "teacher") {
-    return { statusCode: 403, body: "Not authorized" };
+    if (!userId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing userId" })
+      };
+    }
+
+    const userRaw = await redis.get(`users:${userId}`);
+
+    if (!userRaw) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: "User role not found" })
+      };
+    }
+
+    const user = JSON.parse(userRaw);
+
+    if (user.role !== "teacher") {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: "Only teachers can create classes" })
+      };
+    }
+
+    const classId = crypto.randomBytes(4).toString("hex");
+
+    await redis.set(`class:${classId}`, JSON.stringify({ teacherId: userId }));
+    await redis.set(`classMembers:${classId}`, JSON.stringify([]));
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ classId })
+    };
+
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message })
+    };
   }
-
-  const classId = crypto.randomBytes(4).toString("hex");
-
-  await redis.set(`class:${classId}`, JSON.stringify({ teacherId: userId }));
-  await redis.set(`classMembers:${classId}`, JSON.stringify([]));
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ classId })
-  };
 }

@@ -7,6 +7,6 @@ token:process.env.UPSTASH_REDIS_REST_TOKEN
 
 export async function handler(event){
 const {userId,score,total}=JSON.parse(event.body);
-await redis.rpush(`results:${userId}`,JSON.stringify({score,total,date:new Date()}));
+await redis.rpush(`results:${userId}`,{score,total,date:new Date().toISOString()});
 return{statusCode:200,body:JSON.stringify({ok:true})};
 }

@@ -69,20 +69,13 @@ button { background:#1e2a4a; color:white; padding:10px 15px; border:none; margin
 
 <script>
 let currentUser=null,quizData=[],userAnswers=[],currentIndex=0,score=0,timerInterval,timeLeft=20,isPaused=false;
+const byId = id => document.getElementById(id);
 
-netlifyIdentity.on("init", user => {
-  if (user) {
-    currentUser = user;
-    document.getElementById("userEmail").innerText =
-      "Logged in: " + user.email;
-  }
-});
-
-netlifyIdentity.on("init",user=>{if(user){currentUser=user;userEmail.innerText="Logged in: "+user.email;}});
+netlifyIdentity.on("init",user=>{if(user){currentUser=user;byId("userEmail").innerText="Logged in: "+user.email;}});
 netlifyIdentity.on("login", async user => {
   currentUser = user;
 
-  document.getElementById("userEmail").innerText =
+  byId("userEmail").innerText =
     "Logged in: " + user.email;
 
   await fetch("/.netlify/functions/initUser", {
@@ -98,8 +91,7 @@ netlifyIdentity.on("login", async user => {
 });
 
 function logout(){netlifyIdentity.logout();location.reload();}
-//const source=source.value;
-const sourceText = document.getElementById("source").value;
+
 async function generate(){
 
   if(!currentUser){
@@ -107,18 +99,23 @@ async function generate(){
     return;
   }
 
-  const sourceText = document.getElementById("source").value;
-  const difficulty = document.getElementById("difficulty").value;
+  const sourceText = byId("source").value.trim();
+  const difficulty = byId("difficulty").value;
+
+  if(!sourceText){
+    alert("Paste lesson text first");
+    return;
+  }
 
 const res=await fetch("/.netlify/functions/generate",{method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({source,userId:currentUser.id,difficulty})});
+body:JSON.stringify({source:sourceText,userId:currentUser.id,difficulty})});
 
 const data=await res.json();
 if(data.error){quizArea.innerText=data.error;return;}
 
 quizData=data.quiz.questions.map(q=>shuffleQuestion(q));
 userAnswers=[];currentIndex=0;score=0;
-creditDisplay.innerText="Credits: "+data.remainingCredits;
+if(data.remainingCredits!==undefined)creditDisplay.innerText="Credits: "+data.remainingCredits;
 showQuestion();
 }
 
@@ -199,7 +196,12 @@ document.addEventListener("copy",e=>e.preventDefault());
 document.addEventListener("visibilitychange",()=>{if(document.hidden)alert("Tab switch detected");});
 
 async function setRole(){
-  const role=document.getElementById("roleSelect").value;
+  if(!currentUser){
+    alert("Please login first.");
+    return;
+  }
+
+  const role=byId("roleSelect").value;
   await fetch("/.netlify/functions/setRole",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
@@ -207,14 +209,6 @@ async function setRole(){
   });
   alert("Role updated");
 }
-
-netlifyIdentity.on("init", user => {
-  if (user) {
-    currentUser = user;
-    document.getElementById("userEmail").innerText =
-      "Logged in: " + user.email;
-  }
-});
 
 async function createClass() {
 
@@ -238,12 +232,22 @@ async function createClass() {
     return;
   }
 
-  document.getElementById("classDisplay").innerText =
+  byId("classDisplay").innerText =
     "Class ID: " + data.classId;
 }
 
 async function joinClass(){
-  const classId=classInput.value;
+  if(!currentUser){
+    alert("Please login first.");
+    return;
+  }
+
+  const classId=byId("classInput").value.trim();
+  if(!classId){
+    alert("Enter a class ID");
+    return;
+  }
+
   await fetch("/.netlify/functions/joinClass",{method:"POST",
   headers:{"Content-Type":"application/json"},
   body:JSON.stringify({userId:currentUser.id,classId})});

@@ -11,10 +11,10 @@ export async function handler(event) {
   const existing = await redis.get(`users:${userId}`);
 
   if (!existing) {
-    await redis.set(`users:${userId}`, JSON.stringify({
+    await redis.set(`users:${userId}`, {
       role: "student",
       email
-    }));
+    });
   }
 
   return {

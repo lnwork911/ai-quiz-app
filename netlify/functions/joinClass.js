@@ -1,4 +1,5 @@
 import { Redis } from "@upstash/redis";
+import { parseStoredValue } from "./redisValue.js";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -8,11 +9,11 @@ const redis = new Redis({
 export async function handler(event) {
   const { userId, classId } = JSON.parse(event.body);
 
-  let members = JSON.parse(await redis.get(`classMembers:${classId}`) || "[]");
+  let members = parseStoredValue(await redis.get(`classMembers:${classId}`), []);
 
   if (!members.includes(userId)) {
     members.push(userId);
-    await redis.set(`classMembers:${classId}`, JSON.stringify(members));
+    await redis.set(`classMembers:${classId}`, members);
   }
 
   return { statusCode: 200, body: JSON.stringify({ joined: true }) };

@@ -13,7 +13,7 @@ export async function handler(event) {
 
   if (!members.includes(userId)) {
     members.push(userId);
-    await redis.set(`classMembers:${classId}`, JSON.stringify(members));
+    await redis.set(`classMembers:${classId}`, members);
   }
 
   return { statusCode: 200, body: JSON.stringify({ joined: true }) };

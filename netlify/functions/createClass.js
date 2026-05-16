@@ -1,5 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { randomBytes } from "crypto";
+import { parseStoredValue } from "./redisValue.js";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -28,7 +29,7 @@ export async function handler(event) {
       };
     }
 
-    const user = JSON.parse(userRaw);
+    const user = parseStoredValue(userRaw);
 
     if (user.role !== "teacher") {
       return {
@@ -39,8 +40,8 @@ export async function handler(event) {
 
     const classId = randomBytes(4).toString("hex");
 
-    await redis.set(`class:${classId}`, JSON.stringify({ teacherId: userId }));
-    await redis.set(`classMembers:${classId}`, JSON.stringify([]));
+    await redis.set(`class:${classId}`, { teacherId: userId });
+    await redis.set(`classMembers:${classId}`, []);
 
     return {
       statusCode: 200,

@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { Redis } from "@upstash/redis";
 import crypto from "crypto";
+import { parseStoredValue } from "./redisValue.js";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -46,7 +47,7 @@ export async function handler(event) {
       };
     }
 
-    const user = JSON.parse(userRaw);
+    const user = parseStoredValue(userRaw);
 
     // Role check
     if (user.role !== "teacher") {
@@ -68,7 +69,7 @@ export async function handler(event) {
       return {
         statusCode: 200,
         body: JSON.stringify({
-          quiz: JSON.parse(existingQuiz),
+          quiz: parseStoredValue(existingQuiz),
           reused: true
         })
       };
@@ -129,7 +130,7 @@ ${source}
     }
 
     // Store quiz for reuse
-    await redis.set(`quizHash:${hash}`, JSON.stringify(parsed));
+    await redis.set(`quizHash:${hash}`, parsed);
     await redis.rpush(`classQuizzes:${classId}`, hash);
 
     return {

@@ -1,254 +1,434 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Learnistry</title>
-
+<meta name="description" content="Learnistry is a static AI quiz platform landing page for teachers and students.">
+<title>Learnistry | AI Quiz Platform</title>
 <style>
-body { font-family: Arial; margin:0; background:#f4f6fa;}
-header { background:#1e2a4a; color:white; padding:20px; text-align:center;}
-.container { max-width:900px; margin:30px auto; background:white; padding:20px; border-radius:8px;}
-textarea { width:100%; padding:10px;}
-button { background:#1e2a4a; color:white; padding:10px 15px; border:none; margin:5px 0; cursor:pointer;}
-.option-btn { display:block; width:100%; margin:8px 0; text-align:left;}
-.progress { height:10px; background:#ddd; border-radius:5px;}
-.progress-bar { height:10px; background:#1e2a4a; border-radius:5px;}
-.correct { color:green;}
-.wrong { color:red;}
+:root {
+  color-scheme: light;
+  --ink: #172033;
+  --muted: #5f6f89;
+  --brand: #1e2a4a;
+  --brand-light: #e8edf9;
+  --accent: #f0b84b;
+  --surface: #ffffff;
+  --page: #f4f6fa;
+  --line: #dce3ef;
+  --shadow: 0 20px 45px rgba(23, 32, 51, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.6;
+}
+
+a {
+  color: inherit;
+}
+
+.site-header {
+  background: linear-gradient(135deg, var(--brand), #314775);
+  color: white;
+  padding: 28px 24px 72px;
+}
+
+.nav,
+.hero,
+.section {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.brand {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.95rem;
+}
+
+.nav-links a {
+  opacity: 0.86;
+  text-decoration: none;
+}
+
+.nav-links a:hover {
+  opacity: 1;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+  gap: 44px;
+  align-items: center;
+  padding-top: 72px;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: #c7d5f4;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  max-width: 720px;
+  margin-bottom: 22px;
+  font-size: clamp(2.5rem, 6vw, 4.8rem);
+  line-height: 1.02;
+}
+
+.hero-copy {
+  max-width: 620px;
+  margin-bottom: 30px;
+  color: #dbe5fb;
+  font-size: 1.12rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.button-primary {
+  background: var(--accent);
+  color: #211806;
+}
+
+.button-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  color: white;
+}
+
+.hero-card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.quiz-preview {
+  padding: 28px;
+}
+
+.quiz-preview h2 {
+  margin-bottom: 12px;
+  font-size: 1.35rem;
+}
+
+.question {
+  margin: 18px 0;
+  padding: 18px;
+  background: var(--brand-light);
+  border-radius: 18px;
+}
+
+.option-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.option-list li {
+  padding: 12px 14px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.option-list .is-correct {
+  border-color: #8cc99c;
+  background: #effaf2;
+  color: #276738;
+  font-weight: 700;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--line);
+}
+
+.stat {
+  padding: 18px;
+  text-align: center;
+}
+
+.stat strong {
+  display: block;
+  color: var(--brand);
+  font-size: 1.45rem;
+}
+
+main {
+  margin-top: -36px;
+  padding: 0 24px 64px;
+}
+
+.section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  box-shadow: 0 10px 30px rgba(23, 32, 51, 0.07);
+  margin-bottom: 28px;
+  padding: clamp(28px, 5vw, 48px);
+}
+
+.section-header {
+  max-width: 720px;
+  margin-bottom: 28px;
+}
+
+.section-header p {
+  color: var(--muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.feature,
+.step,
+.callout {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 22px;
+}
+
+.feature h3,
+.step h3 {
+  margin-bottom: 10px;
+  color: var(--brand);
+}
+
+.feature p,
+.step p,
+.callout p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.step-number {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: white;
+  font-weight: 700;
+}
+
+.callout {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 20px;
+  align-items: center;
+  background: var(--brand-light);
+}
+
+.callout .button {
+  background: var(--brand);
+  color: white;
+}
+
+.site-footer {
+  padding: 30px 24px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 820px) {
+  .nav,
+  .hero,
+  .callout {
+    grid-template-columns: 1fr;
+  }
+
+  .nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hero {
+    padding-top: 52px;
+  }
+
+  .grid,
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .callout .button {
+    justify-self: start;
+  }
+}
 </style>
 </head>
 <body>
+<header class="site-header">
+  <nav class="nav" aria-label="Main navigation">
+    <div class="brand">Learnistry</div>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#workflow">Workflow</a></li>
+      <li><a href="#preview">Preview</a></li>
+    </ul>
+  </nav>
 
-<header>
-<h1>Learnistry</h1>
-<p>AI Quiz Platform</p>
+  <section class="hero" id="preview">
+    <div>
+      <p class="eyebrow">AI quiz platform</p>
+      <h1>Turn lesson material into focused study practice.</h1>
+      <p class="hero-copy">
+        Learnistry helps teachers introduce quiz-driven review and gives students a clear path from lesson content to confident recall.
+      </p>
+      <div class="actions">
+        <a class="button button-primary" href="#workflow">See how it works</a>
+        <a class="button button-secondary" href="#features">Explore features</a>
+      </div>
+    </div>
+
+    <aside class="hero-card" aria-label="Static quiz preview">
+      <div class="quiz-preview">
+        <p class="eyebrow">Static preview</p>
+        <h2>Sample quiz card</h2>
+        <div class="question">
+          <strong>Which review habit improves long-term retention?</strong>
+        </div>
+        <ul class="option-list">
+          <li>Reading notes once before class</li>
+          <li class="is-correct">Practicing recall over spaced sessions</li>
+          <li>Highlighting every sentence</li>
+        </ul>
+      </div>
+      <div class="stats" aria-label="Platform highlights">
+        <div class="stat"><strong>3</strong>difficulty levels</div>
+        <div class="stat"><strong>20s</strong>timed prompts</div>
+        <div class="stat"><strong>PDF</strong>review-ready</div>
+      </div>
+    </aside>
+  </section>
 </header>
 
-<div class="container">
+<main>
+  <section class="section" id="features">
+    <div class="section-header">
+      <p class="eyebrow">Features</p>
+      <h2>Designed for simple classroom review.</h2>
+      <p>Use the platform concept to present quizzes, highlight weak areas, and support lightweight class practice without complicated setup.</p>
+    </div>
+    <div class="grid">
+      <article class="feature">
+        <h3>Lesson-based quizzes</h3>
+        <p>Convert source material into concise question sets that match the topic students are studying.</p>
+      </article>
+      <article class="feature">
+        <h3>Teacher and student views</h3>
+        <p>Support class creation, participation, and shared review goals from a single product experience.</p>
+      </article>
+      <article class="feature">
+        <h3>Review summaries</h3>
+        <p>Surface missed concepts and export results for follow-up assignments or individual study plans.</p>
+      </article>
+    </div>
+  </section>
 
-<button onclick="netlifyIdentity.open()">Login</button>
-<button onclick="logout()">Logout</button>
-<p id="userEmail"></p>
-<p id="creditDisplay"></p>
+  <section class="section" id="workflow">
+    <div class="section-header">
+      <p class="eyebrow">Workflow</p>
+      <h2>A static snapshot of the quiz flow.</h2>
+      <p>This page is now plain HTML and CSS, so it can be served without JavaScript, Netlify Identity, or backend functions.</p>
+    </div>
+    <div class="grid">
+      <article class="step">
+        <span class="step-number">1</span>
+        <h3>Add lesson content</h3>
+        <p>Teachers provide the source text or topic students need to review.</p>
+      </article>
+      <article class="step">
+        <span class="step-number">2</span>
+        <h3>Practice with focus</h3>
+        <p>Students answer targeted questions and get immediate reinforcement.</p>
+      </article>
+      <article class="step">
+        <span class="step-number">3</span>
+        <h3>Review weak spots</h3>
+        <p>Results identify concepts that need another pass before assessment.</p>
+      </article>
+    </div>
+  </section>
 
-<label>Role:</label>
-<select id="roleSelect">
-  <option value="student">Student</option>
-  <option value="teacher">Teacher</option>
-</select>
+  <section class="section">
+    <div class="callout">
+      <div>
+        <p class="eyebrow">Static HTML</p>
+        <h2>Ready to host as a single page.</h2>
+        <p>No external scripts or runtime API calls are required for this version of Learnistry.</p>
+      </div>
+      <a class="button" href="#preview">Back to top</a>
+    </div>
+  </section>
+</main>
 
-<button onclick="setRole()">Set Role</button>
-
-<hr>
-
-<h3>Class</h3>
-<button onclick="createClass()">Create Class</button>
-<input id="classInput" placeholder="Enter class ID"/>
-<button onclick="joinClass()">Join Class</button>
-
-<p id="classDisplay"></p>
-<label>Difficulty:</label>
-<select id="difficulty">
-<option value="easy">Easy</option>
-<option value="medium" selected>Medium</option>
-<option value="hard">Hard</option>
-</select>
-
-<textarea id="source" rows="6" placeholder="Paste lesson text"></textarea>
-<button onclick="generate()">Generate Quiz</button>
-<button onclick="pauseQuiz()">Pause</button>
-<button onclick="resumeQuiz()">Resume</button>
-
-<div id="quizArea"></div>
-
-</div>
-
-<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
-<script>
-let currentUser=null,quizData=[],userAnswers=[],currentIndex=0,score=0,timerInterval,timeLeft=20,isPaused=false;
-
-netlifyIdentity.on("init", user => {
-  if (user) {
-    currentUser = user;
-    document.getElementById("userEmail").innerText =
-      "Logged in: " + user.email;
-  }
-});
-
-netlifyIdentity.on("init",user=>{if(user){currentUser=user;userEmail.innerText="Logged in: "+user.email;}});
-netlifyIdentity.on("login", async user => {
-  currentUser = user;
-
-  document.getElementById("userEmail").innerText =
-    "Logged in: " + user.email;
-
-  await fetch("/.netlify/functions/initUser", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId: user.id,
-      email: user.email
-    })
-  });
-
-  netlifyIdentity.close();
-});
-
-function logout(){netlifyIdentity.logout();location.reload();}
-//const source=source.value;
-const sourceText = document.getElementById("source").value;
-async function generate(){
-
-  if(!currentUser){
-    alert("Login first");
-    return;
-  }
-
-  const sourceText = document.getElementById("source").value;
-  const difficulty = document.getElementById("difficulty").value;
-
-const res=await fetch("/.netlify/functions/generate",{method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({source,userId:currentUser.id,difficulty})});
-
-const data=await res.json();
-if(data.error){quizArea.innerText=data.error;return;}
-
-quizData=data.quiz.questions.map(q=>shuffleQuestion(q));
-userAnswers=[];currentIndex=0;score=0;
-creditDisplay.innerText="Credits: "+data.remainingCredits;
-showQuestion();
-}
-
-function shuffleQuestion(q){
-let options=[...q.options];
-let correct=options[q.correctIndex];
-options.sort(()=>Math.random()-0.5);
-return {...q,options,correctIndex:options.indexOf(correct)};
-}
-
-function showQuestion(){
-if(currentIndex>=quizData.length){finishQuiz();return;}
-let progress=(currentIndex/quizData.length)*100;
-let q=quizData[currentIndex];
-
-quizArea.innerHTML=`
-<div class="progress"><div class="progress-bar" style="width:${progress}%"></div></div>
-<p>Question ${currentIndex+1}/${quizData.length}</p>
-<p>Time: <span id="timer">20</span>s</p>
-<h3>${q.question}</h3>
-${q.options.map((o,i)=>`<button class="option-btn" onclick="checkAnswer(${i})">${o}</button>`).join("")}
-`;
-startTimer();
-}
-
-function startTimer(){
-timeLeft=20;
-timerInterval=setInterval(()=>{
-if(isPaused)return;
-timeLeft--;
-timer.innerText=timeLeft;
-if(timeLeft<=0){clearInterval(timerInterval);userAnswers.push(null);currentIndex++;showQuestion();}
-},1000);
-}
-
-function checkAnswer(i){
-clearInterval(timerInterval);
-userAnswers.push(i);
-if(i===quizData[currentIndex].correctIndex)score++;
-currentIndex++;showQuestion();
-}
-
-function pauseQuiz(){isPaused=true;}
-function resumeQuiz(){isPaused=false;}
-
-async function finishQuiz(){
-let weak=[];
-let html=`<h2>Score ${score}/${quizData.length}</h2>`;
-
-quizData.forEach((q,i)=>{
-let ua=userAnswers[i];
-let correct=ua===q.correctIndex;
-if(!correct)weak.push(q.question);
-html+=`
-<p><strong>${q.question}</strong></p>
-<p class="${correct?'correct':'wrong'}">
-Your: ${ua!==null?q.options[ua]:"No answer"}
-</p>
-<p class="correct">Correct: ${q.options[q.correctIndex]}</p>
-<p>${q.explanation}</p><hr>
-`;
-});
-
-if(weak.length>0){
-html+=`<h3>Recommended Review:</h3><ul>${weak.map(w=>`<li>${w}</li>`).join("")}</ul>`;
-}
-
-html+=`<button onclick="exportPDF()">Export PDF</button>`;
-quizArea.innerHTML=html;
-
-await fetch("/.netlify/functions/saveResult",{method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({userId:currentUser.id,score,total:quizData.length})});
-}
-
-function exportPDF(){html2pdf().from(quizArea).save("quiz-results.pdf");}
-
-document.addEventListener("copy",e=>e.preventDefault());
-document.addEventListener("visibilitychange",()=>{if(document.hidden)alert("Tab switch detected");});
-
-async function setRole(){
-  const role=document.getElementById("roleSelect").value;
-  await fetch("/.netlify/functions/setRole",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({userId:currentUser.id,role})
-  });
-  alert("Role updated");
-}
-
-netlifyIdentity.on("init", user => {
-  if (user) {
-    currentUser = user;
-    document.getElementById("userEmail").innerText =
-      "Logged in: " + user.email;
-  }
-});
-
-async function createClass() {
-
-  if (!currentUser) {
-    alert("Please login first.");
-    return;
-  }
-
-  const response = await fetch("/.netlify/functions/createClass", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      userId: currentUser.id
-    })
-  });
-
-  const data = await response.json();
-
-  if (data.error) {
-    alert(data.error);
-    return;
-  }
-
-  document.getElementById("classDisplay").innerText =
-    "Class ID: " + data.classId;
-}
-
-async function joinClass(){
-  const classId=classInput.value;
-  await fetch("/.netlify/functions/joinClass",{method:"POST",
-  headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({userId:currentUser.id,classId})});
-  alert("Joined class");
-}
-</script>
+<footer class="site-footer">
+  <p>&copy; 2026 Learnistry. Built as a static HTML page.</p>
+</footer>
 </body>
 </html>

@@ -100,6 +100,11 @@ See `.env.example` for a copy/paste template.
 
 5. **Identity note:** External Identity providers (Google, etc.) must be configured in the Netlify UI. Email/password works out of the box for most sites once Identity is enabled.
 
+6. **If the login modal is empty (no email/password):**
+   - Ensure **Identity** is enabled and your site URL in Identity settings matches how you open the app (custom domain vs `*.netlify.app`).
+   - In the browser console, run `localStorage.removeItem("netlifySiteURL")` if you previously pointed the widget at the wrong site during local testing, then reload.
+   - This repo **does not ship a global Content-Security-Policy** header by default, because a mis-tuned CSP commonly blocks Netlify Identity’s iframe. Add CSP back in `netlify.toml` only after you confirm the exact `frame-src` / `connect-src` hosts your deployment uses (see the Network tab when opening the widget).
+
 ## Deploying to Netlify
 
 1. Push this repository to GitHub (or GitLab / Bitbucket).

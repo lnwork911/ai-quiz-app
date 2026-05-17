@@ -76,7 +76,21 @@
         }
       });
 
-      global.netlifyIdentity.init();
+      /**
+       * GoTrue endpoint. Prefer `localStorage.netlifySiteURL` when set (Netlify
+       * Identity widget dev / preview flow), otherwise same-origin `/.netlify/identity`.
+       */
+      var stored = global.localStorage.getItem("netlifySiteURL");
+      var base =
+        stored && typeof stored === "string" && stored.indexOf("http") === 0
+          ? stored.replace(/\/$/, "")
+          : global.location.origin;
+      var apiUrl = base + "/.netlify/identity";
+
+      global.netlifyIdentity.init({
+        locale: "en",
+        APIUrl: apiUrl,
+      });
     });
 
     return identityReadyPromise;

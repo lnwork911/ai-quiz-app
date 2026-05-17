@@ -361,8 +361,11 @@ textarea {
 }
 
 .sidebar {
-  position: sticky;
-  top: 5.5rem;
+  /*
+   * Intentionally not sticky: a sticky aside + long quiz output often makes the
+   * lower card ("Architecture tip") feel glued to the viewport when scrolling.
+   * The layout stays simple and predictable on mobile and desktop.
+   */
   align-self: start;
 }
 

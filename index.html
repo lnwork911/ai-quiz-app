@@ -1,254 +1,138 @@
 <!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Learnistry</title>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teacher Quiz — Turn a topic into a classroom-ready quiz</title>
+    <meta
+      name="description"
+      content="Sign in, describe your lesson objective, and get structured multiple-choice quizzes. Built on Netlify with secure server-side AI—ready to grow into classes, analytics, and subscriptions."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body data-page="landing">
+    <a class="skip-link" href="#main">Skip to content</a>
 
-<style>
-body { font-family: Arial; margin:0; background:#f4f6fa;}
-header { background:#1e2a4a; color:white; padding:20px; text-align:center;}
-.container { max-width:900px; margin:30px auto; background:white; padding:20px; border-radius:8px;}
-textarea { width:100%; padding:10px;}
-button { background:#1e2a4a; color:white; padding:10px 15px; border:none; margin:5px 0; cursor:pointer;}
-.option-btn { display:block; width:100%; margin:8px 0; text-align:left;}
-.progress { height:10px; background:#ddd; border-radius:5px;}
-.progress-bar { height:10px; background:#1e2a4a; border-radius:5px;}
-.correct { color:green;}
-.wrong { color:red;}
-</style>
-</head>
-<body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="/index.html">
+          <span class="brand-mark" aria-hidden="true">TQ</span>
+          <span>Teacher Quiz</span>
+        </a>
+        <nav class="nav" aria-label="Primary">
+          <a data-nav href="/index.html">Home</a>
+          <a data-nav href="/dashboard.html">Dashboard</a>
+          <a data-nav href="/pricing.html">Pricing</a>
+          <a class="btn btn-primary btn-nav" data-nav href="/login.html">Sign in</a>
+        </nav>
+      </div>
+    </header>
 
-<header>
-<h1>Learnistry</h1>
-<p>AI Quiz Platform</p>
-</header>
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="container hero-grid">
+          <div>
+            <span class="pill">For teachers</span>
+            <h1 id="hero-title">Turn one clear objective into a quiz students can actually learn from.</h1>
+            <p class="lead">
+              You bring the topic and the grade level. We generate structured
+              questions, answer choices, and short explanations—so you can review,
+              edit in class, and reuse next term. Your account stays behind Netlify
+              Identity; generation stays on the server where your API keys belong.
+            </p>
+            <div class="hero-actions">
+              <button class="btn btn-primary" type="button" id="tqs-go-dashboard">
+                Go to dashboard
+              </button>
+              <a class="btn btn-secondary" href="/login.html">Create account or sign in</a>
+              <a class="btn btn-ghost" href="/pricing.html">See plans</a>
+            </div>
+            <p class="field-hint mt-tight">
+              New here? Use <strong>Sign in</strong> once, then open the dashboard to generate your first quiz.
+            </p>
+          </div>
 
-<div class="container">
+          <aside class="card" aria-label="At a glance">
+            <h3 class="mt-0">What happens in the dashboard</h3>
+            <ol class="list list-steps">
+              <li class="mb-tight">Describe the lesson focus in plain language.</li>
+              <li class="mb-tight">Pick difficulty and question count.</li>
+              <li>Get a printable-style preview you can adapt for your room.</li>
+            </ol>
+            <hr class="hr-soft" />
+            <p class="field-hint mt-0">
+              Phase 1 is the foundation: auth, API wrapper, loading and toasts, optional Redis caching, and Stripe-ready billing hooks—so you can add rosters, leaderboards, and analytics without starting over.
+            </p>
+          </aside>
+        </div>
+      </section>
 
-<button onclick="netlifyIdentity.open()">Login</button>
-<button onclick="logout()">Logout</button>
-<p id="userEmail"></p>
-<p id="creditDisplay"></p>
+      <section
+        class="container feature-grid"
+        aria-label="Why this stack works well for schools"
+      >
+        <article class="feature">
+          <span class="pill">Calm workflow</span>
+          <h4>Less tab-hopping</h4>
+          <p>
+            Marketing, dashboard, login, and pricing are separate pages on purpose:
+            fast loads, clear mental models, and room to grow without a heavy SPA
+            toolchain.
+          </p>
+        </article>
+        <article class="feature">
+          <span class="pill">Safety first</span>
+          <h4>Secrets off the page</h4>
+          <p>
+            OpenAI, Stripe, and Redis credentials live in Netlify environment
+            variables. The browser only sends your Identity token with each request.
+          </p>
+        </article>
+        <article class="feature">
+          <span class="pill">Room to grow</span>
+          <h4>Extensible by design</h4>
+          <p>
+            Classes, shared links, leaderboards, adaptive follow-ups, and usage
+            analytics map cleanly onto the same authenticated functions pattern you
+            already have.
+          </p>
+        </article>
+      </section>
 
-<label>Role:</label>
-<select id="roleSelect">
-  <option value="student">Student</option>
-  <option value="teacher">Teacher</option>
-</select>
+      <section class="container section-cta" aria-labelledby="cta-title">
+        <div class="card cta-strip">
+          <div>
+            <h2 id="cta-title" class="mt-0 mb-sm">Ready when you are</h2>
+            <p class="field-hint mt-0">
+              Deploy on Netlify, enable Identity, add keys, then invite your first pilot teacher.
+            </p>
+          </div>
+          <div class="cta-actions">
+            <button class="btn btn-primary" type="button" id="tqs-go-dashboard-cta">
+              Open dashboard
+            </button>
+            <a class="btn btn-secondary" href="/pricing.html">Compare tiers</a>
+          </div>
+        </div>
+      </section>
+    </main>
 
-<button onclick="setRole()">Set Role</button>
+    <footer class="footer">
+      <div class="container">
+        Teacher Quiz — Phase 1 foundation. Configure Identity and environment variables on Netlify before inviting users.
+      </div>
+    </footer>
 
-<hr>
-
-<h3>Class</h3>
-<button onclick="createClass()">Create Class</button>
-<input id="classInput" placeholder="Enter class ID"/>
-<button onclick="joinClass()">Join Class</button>
-
-<p id="classDisplay"></p>
-<label>Difficulty:</label>
-<select id="difficulty">
-<option value="easy">Easy</option>
-<option value="medium" selected>Medium</option>
-<option value="hard">Hard</option>
-</select>
-
-<textarea id="source" rows="6" placeholder="Paste lesson text"></textarea>
-<button onclick="generate()">Generate Quiz</button>
-<button onclick="pauseQuiz()">Pause</button>
-<button onclick="resumeQuiz()">Resume</button>
-
-<div id="quizArea"></div>
-
-</div>
-
-<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
-<script>
-let currentUser=null,quizData=[],userAnswers=[],currentIndex=0,score=0,timerInterval,timeLeft=20,isPaused=false;
-
-netlifyIdentity.on("init", user => {
-  if (user) {
-    currentUser = user;
-    document.getElementById("userEmail").innerText =
-      "Logged in: " + user.email;
-  }
-});
-
-netlifyIdentity.on("init",user=>{if(user){currentUser=user;userEmail.innerText="Logged in: "+user.email;}});
-netlifyIdentity.on("login", async user => {
-  currentUser = user;
-
-  document.getElementById("userEmail").innerText =
-    "Logged in: " + user.email;
-
-  await fetch("/.netlify/functions/initUser", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId: user.id,
-      email: user.email
-    })
-  });
-
-  netlifyIdentity.close();
-});
-
-function logout(){netlifyIdentity.logout();location.reload();}
-//const source=source.value;
-const sourceText = document.getElementById("source").value;
-async function generate(){
-
-  if(!currentUser){
-    alert("Login first");
-    return;
-  }
-
-  const sourceText = document.getElementById("source").value;
-  const difficulty = document.getElementById("difficulty").value;
-
-const res=await fetch("/.netlify/functions/generate",{method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({source,userId:currentUser.id,difficulty})});
-
-const data=await res.json();
-if(data.error){quizArea.innerText=data.error;return;}
-
-quizData=data.quiz.questions.map(q=>shuffleQuestion(q));
-userAnswers=[];currentIndex=0;score=0;
-creditDisplay.innerText="Credits: "+data.remainingCredits;
-showQuestion();
-}
-
-function shuffleQuestion(q){
-let options=[...q.options];
-let correct=options[q.correctIndex];
-options.sort(()=>Math.random()-0.5);
-return {...q,options,correctIndex:options.indexOf(correct)};
-}
-
-function showQuestion(){
-if(currentIndex>=quizData.length){finishQuiz();return;}
-let progress=(currentIndex/quizData.length)*100;
-let q=quizData[currentIndex];
-
-quizArea.innerHTML=`
-<div class="progress"><div class="progress-bar" style="width:${progress}%"></div></div>
-<p>Question ${currentIndex+1}/${quizData.length}</p>
-<p>Time: <span id="timer">20</span>s</p>
-<h3>${q.question}</h3>
-${q.options.map((o,i)=>`<button class="option-btn" onclick="checkAnswer(${i})">${o}</button>`).join("")}
-`;
-startTimer();
-}
-
-function startTimer(){
-timeLeft=20;
-timerInterval=setInterval(()=>{
-if(isPaused)return;
-timeLeft--;
-timer.innerText=timeLeft;
-if(timeLeft<=0){clearInterval(timerInterval);userAnswers.push(null);currentIndex++;showQuestion();}
-},1000);
-}
-
-function checkAnswer(i){
-clearInterval(timerInterval);
-userAnswers.push(i);
-if(i===quizData[currentIndex].correctIndex)score++;
-currentIndex++;showQuestion();
-}
-
-function pauseQuiz(){isPaused=true;}
-function resumeQuiz(){isPaused=false;}
-
-async function finishQuiz(){
-let weak=[];
-let html=`<h2>Score ${score}/${quizData.length}</h2>`;
-
-quizData.forEach((q,i)=>{
-let ua=userAnswers[i];
-let correct=ua===q.correctIndex;
-if(!correct)weak.push(q.question);
-html+=`
-<p><strong>${q.question}</strong></p>
-<p class="${correct?'correct':'wrong'}">
-Your: ${ua!==null?q.options[ua]:"No answer"}
-</p>
-<p class="correct">Correct: ${q.options[q.correctIndex]}</p>
-<p>${q.explanation}</p><hr>
-`;
-});
-
-if(weak.length>0){
-html+=`<h3>Recommended Review:</h3><ul>${weak.map(w=>`<li>${w}</li>`).join("")}</ul>`;
-}
-
-html+=`<button onclick="exportPDF()">Export PDF</button>`;
-quizArea.innerHTML=html;
-
-await fetch("/.netlify/functions/saveResult",{method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({userId:currentUser.id,score,total:quizData.length})});
-}
-
-function exportPDF(){html2pdf().from(quizArea).save("quiz-results.pdf");}
-
-document.addEventListener("copy",e=>e.preventDefault());
-document.addEventListener("visibilitychange",()=>{if(document.hidden)alert("Tab switch detected");});
-
-async function setRole(){
-  const role=document.getElementById("roleSelect").value;
-  await fetch("/.netlify/functions/setRole",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({userId:currentUser.id,role})
-  });
-  alert("Role updated");
-}
-
-netlifyIdentity.on("init", user => {
-  if (user) {
-    currentUser = user;
-    document.getElementById("userEmail").innerText =
-      "Logged in: " + user.email;
-  }
-});
-
-async function createClass() {
-
-  if (!currentUser) {
-    alert("Please login first.");
-    return;
-  }
-
-  const response = await fetch("/.netlify/functions/createClass", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      userId: currentUser.id
-    })
-  });
-
-  const data = await response.json();
-
-  if (data.error) {
-    alert(data.error);
-    return;
-  }
-
-  document.getElementById("classDisplay").innerText =
-    "Class ID: " + data.classId;
-}
-
-async function joinClass(){
-  const classId=classInput.value;
-  await fetch("/.netlify/functions/joinClass",{method:"POST",
-  headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({userId:currentUser.id,classId})});
-  alert("Joined class");
-}
-</script>
-</body>
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+  </body>
 </html>

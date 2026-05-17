@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teacher dashboard — Teacher Quiz</title>
+    <meta
+      name="description"
+      content="Generate classroom-ready quizzes with AI, authenticated through Netlify Identity."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body data-page="dashboard">
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="/index.html">
+          <span class="brand-mark" aria-hidden="true">TQ</span>
+          <span>Teacher Quiz</span>
+        </a>
+        <nav class="nav" aria-label="Primary">
+          <a data-nav href="/index.html">Home</a>
+          <a data-nav href="/dashboard.html">Dashboard</a>
+          <a data-nav href="/pricing.html">Pricing</a>
+          <span
+            id="tqs-user-chip"
+            class="field-hint"
+            style="margin: 0; max-width: 220px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+          ></span>
+          <button class="btn btn-ghost" type="button" id="tqs-logout">Sign out</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container dashboard">
+      <aside class="sidebar" aria-label="Workspace">
+        <div class="card">
+          <h3>Workspace</h3>
+          <p id="tqs-session" class="field-hint" style="margin-top: 0.25rem">
+            Checking your secure session…
+          </p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 1rem 0" />
+          <p class="field-hint" style="margin: 0">
+            Phase 2 ideas: save quizzes to a class, duplicate variants, export to
+            Google Forms, and attach standards alignments.
+          </p>
+        </div>
+        <div class="card">
+          <h4>Architecture tip</h4>
+          <p class="field-hint" style="margin: 0">
+            All privileged work stays in Netlify Functions. The browser only
+            holds a short-lived Identity JWT.
+          </p>
+        </div>
+      </aside>
+
+      <section aria-label="Quiz generator">
+        <div class="card">
+          <h2 style="margin-top: 0">Generate a new quiz</h2>
+          <p class="field-hint" style="margin-top: 0">
+            Inputs are validated on the server, cached in Redis when available, and
+            sent to OpenAI using JSON mode for predictable structure.
+          </p>
+
+          <form id="tqs-quiz-form" class="form" style="margin-top: 1rem">
+            <div>
+              <label for="tqs-topic">Topic or learning objective</label>
+              <textarea
+                id="tqs-topic"
+                maxlength="500"
+                required
+                placeholder="e.g., Photosynthesis — focus on energy transfer and real-world examples"
+              ></textarea>
+              <p class="field-hint">Maximum 500 characters.</p>
+            </div>
+
+            <div>
+              <label for="tqs-grade">Grade level or audience</label>
+              <input
+                id="tqs-grade"
+                type="text"
+                maxlength="80"
+                required
+                placeholder="e.g., 7th grade life science"
+              />
+            </div>
+
+            <div>
+              <label for="tqs-count">Number of questions</label>
+              <select id="tqs-count" required>
+                <option value="5">5</option>
+                <option value="8" selected>8</option>
+                <option value="10">10</option>
+                <option value="12">12</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="tqs-difficulty">Difficulty</label>
+              <select id="tqs-difficulty" required>
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap">
+              <button class="btn btn-primary" type="submit">Generate quiz</button>
+              <a class="btn btn-secondary" href="/pricing.html">Upgrade plan</a>
+            </div>
+          </form>
+        </div>
+
+        <div id="tqs-quiz-output" class="quiz-output" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        Need help? Read <span class="mono">README.md</span> for Identity, Stripe,
+        and local development.
+      </div>
+    </footer>
+
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+  </body>
+</html>

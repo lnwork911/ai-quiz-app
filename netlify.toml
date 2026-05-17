@@ -1,2 +1,30 @@
-[functions]
-directory = "netlify/functions"
+# Netlify configuration for Teacher Quiz SaaS (Phase 1)
+# Docs: https://docs.netlify.com/configure-builds/file-based-configuration/
+
+[build]
+  # Static HTML + vanilla JS live at the repository root
+  publish = "."
+  command = "npm run build"
+  functions = "netlify/functions"
+
+[dev]
+  framework = "#static"
+  publish = "."
+  functions = "netlify/functions"
+
+# Security headers for all HTML/asset responses
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://identity.netlify.com https://js.stripe.com; frame-src https://js.stripe.com https://hooks.stripe.com; connect-src 'self' https://identity.netlify.com https://api.netlify.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:;"
+
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"

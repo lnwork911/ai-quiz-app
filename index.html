@@ -25,14 +25,15 @@
     />
 
     <link rel="stylesheet" href="/css/brand.css" />
+    <link rel="stylesheet" href="/css/site-nav.css" />
     <link rel="stylesheet" href="/assets/css/style.css" />
   </head>
   <body id="top">
     <!-- Skip link helps keyboard users jump past repetitive navigation -->
     <a class="skip-link" href="#main">Skip to content</a>
 
-    <!-- Sticky site navigation -->
-    <header class="nav" data-site-nav>
+    <!-- Sticky site navigation (shell + link styles shared via /css/site-nav.css) -->
+    <header class="site-header" data-site-nav>
       <div class="nav__inner container">
         <a class="site-brand" href="#top" aria-label="Teacher Quiz home">
           <span class="site-logo" aria-hidden="true">TQ</span>
@@ -41,13 +42,14 @@
 
         <div class="nav__sheet" id="site-menu" data-nav-panel>
           <nav class="nav__links" aria-label="Primary">
-            <a class="nav__link" href="#features">Features</a>
-            <a class="nav__link" href="#pricing">Pricing</a>
+            <a class="site-nav__link" data-nav href="/index.html#features">Features</a>
+            <a class="site-nav__link" data-nav href="/pricing.html">Pricing</a>
+            <a class="site-nav__link" data-nav href="/dashboard.html">Dashboard</a>
           </nav>
 
           <div class="nav__actions" aria-label="Account actions">
-            <a class="btn btn--ghost" href="/login.html">Login</a>
-            <a class="btn btn--primary" href="/login.html">Start free</a>
+            <a class="site-nav__btn site-nav__btn--ghost" data-nav href="/login.html">Login</a>
+            <a class="site-nav__btn site-nav__btn--primary" href="/login.html">Start free</a>
           </div>
         </div>
 

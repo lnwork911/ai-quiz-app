@@ -10,10 +10,24 @@
    */
   function highlightNav() {
     const path = global.location.pathname.split("/").pop() || "index.html";
+
+    /** @param {string} href */
+    function fileFromHref(href) {
+      if (!href) return "";
+      const noHash = href.split("#")[0];
+      const parts = noHash.split("/");
+      return parts.pop() || noHash || "";
+    }
+
     const links = document.querySelectorAll("[data-nav]");
     links.forEach(function (link) {
       const href = link.getAttribute("href") || "";
-      if (href === path || (path === "" && href === "index.html")) {
+      const target = fileFromHref(href);
+      if (
+        target === path ||
+        (path === "" && target === "index.html") ||
+        (path === "index.html" && target === "index.html")
+      ) {
         link.classList.add("is-active");
       }
     });

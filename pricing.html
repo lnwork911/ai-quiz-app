@@ -11,29 +11,32 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/css/brand.css" />
+    <link rel="stylesheet" href="/css/site-nav.css" />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
   <body data-page="pricing">
+    <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="container header-inner">
         <a class="site-brand" href="/index.html">
           <span class="site-logo" aria-hidden="true">TQ</span>
           <span>Teacher Quiz</span>
         </a>
-        <nav class="nav" aria-label="Primary">
-          <a data-nav href="/index.html">Home</a>
-          <a data-nav href="/dashboard.html">Dashboard</a>
-          <a data-nav href="/pricing.html">Pricing</a>
-          <a data-nav href="/login.html">Sign in</a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="site-nav__link" data-nav href="/index.html#features">Features</a>
+          <a class="site-nav__link" data-nav href="/pricing.html">Pricing</a>
+          <a class="site-nav__link" data-nav href="/dashboard.html">Dashboard</a>
+          <a class="site-nav__btn site-nav__btn--ghost" data-nav href="/login.html">Login</a>
+          <a class="site-nav__btn site-nav__btn--primary" href="/login.html">Start free</a>
         </nav>
       </div>
     </header>
 
-    <main class="container">
+    <main id="main" class="container">
       <section class="hero" style="padding-bottom: 0">
         <span class="pill">Stripe subscriptions</span>
         <h1 style="margin-bottom: 0.5rem">Pricing that stays out of your way</h1>

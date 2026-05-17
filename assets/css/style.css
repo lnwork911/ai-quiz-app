@@ -193,11 +193,6 @@ button {
   line-height: var(--leading-snug);
 }
 
-/* Scroll offset for sticky navbar anchor targets */
-[id] {
-  scroll-margin-top: calc(var(--nav-h) + 12px);
-}
-
 /* -------------------------------------------------------------------------- */
 /* Buttons                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -264,21 +259,7 @@ button {
 /* Navbar (sticky)                                                            */
 /* -------------------------------------------------------------------------- */
 
-.nav {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  background: color-mix(in srgb, var(--color-white) 86%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-}
-
-@supports not (backdrop-filter: blur(12px)) {
-  .nav {
-    background: rgba(248, 250, 252, 0.96);
-  }
-}
+/* Homepage header shell is .site-header (see /css/site-nav.css). Layout below. */
 
 .nav__inner {
   height: var(--nav-h);
@@ -317,18 +298,16 @@ button {
   gap: 0.35rem;
 }
 
-.nav__link {
+.nav__sheet .site-nav__link {
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-height: 48px;
   padding: 0.65rem 0.75rem;
   border-radius: 12px;
-  color: var(--color-dark);
-  font-weight: 650;
 }
 
-.nav__link:hover {
+.nav__sheet .site-nav__link:hover {
   background: var(--color-elevated);
 }
 
@@ -340,7 +319,7 @@ button {
   border-top: 1px solid rgba(226, 232, 240, 0.95);
 }
 
-.nav__actions .btn {
+.nav__actions .site-nav__btn {
   width: 100%;
 }
 
@@ -423,16 +402,10 @@ button {
     margin-right: auto;
   }
 
-  .nav__link {
+  .nav__sheet .site-nav__link {
     min-height: 44px;
     padding: 0.55rem 0.85rem;
-    color: var(--color-muted);
-    font-weight: 650;
-  }
-
-  .nav__link:hover {
-    color: var(--color-dark);
-    background: rgba(15, 23, 42, 0.05);
+    justify-content: center;
   }
 
   .nav__actions {
@@ -444,7 +417,7 @@ button {
     width: auto;
   }
 
-  .nav__actions .btn {
+  .nav__actions .site-nav__btn {
     width: auto;
   }
 }

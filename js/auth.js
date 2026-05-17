@@ -87,10 +87,16 @@
           : global.location.origin;
       var apiUrl = base + "/.netlify/identity";
 
-      global.netlifyIdentity.init({
+      var initOpts = {
         locale: "en",
         APIUrl: apiUrl,
-      });
+      };
+      var mount = global.document.getElementById("netlify-identity-modal-root");
+      if (mount) {
+        initOpts.container = "#netlify-identity-modal-root";
+      }
+
+      global.netlifyIdentity.init(initOpts);
     });
 
     return identityReadyPromise;
@@ -130,11 +136,32 @@
   }
 
   /**
+   * Scrolls the document to the top so WebKit (iOS) lays out fixed Identity overlays predictably.
+   */
+  function scrollTopForModal() {
+    try {
+      global.window.scrollTo(0, 0);
+      if (global.document.documentElement) {
+        global.document.documentElement.scrollTop = 0;
+      }
+      if (global.document.body) {
+        global.document.body.scrollTop = 0;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /**
    * Opens the Identity login modal.
    */
   function openLoginModal() {
     if (!global.netlifyIdentity) return;
+    scrollTopForModal();
     global.netlifyIdentity.open("login");
+    global.requestAnimationFrame(function () {
+      scrollTopForModal();
+    });
   }
 
   /**
@@ -142,7 +169,11 @@
    */
   function openSignupModal() {
     if (!global.netlifyIdentity) return;
+    scrollTopForModal();
     global.netlifyIdentity.open("signup");
+    global.requestAnimationFrame(function () {
+      scrollTopForModal();
+    });
   }
 
   /**

@@ -17,9 +17,36 @@
     <link rel="stylesheet" href="/css/brand.css" />
     <link rel="stylesheet" href="/css/site-nav.css" />
     <link rel="stylesheet" href="/css/styles.css" />
+    <!-- iOS Safari: real viewport height for layout (address bar / toolbars) -->
+    <script>
+      (function () {
+        function setAppVh() {
+          var h = window.visualViewport
+            ? window.visualViewport.height
+            : window.innerHeight;
+          if (h && h > 0) {
+            document.documentElement.style.setProperty(
+              "--app-vh",
+              h * 0.01 + "px"
+            );
+          }
+        }
+        setAppVh();
+        window.addEventListener("resize", setAppVh, { passive: true });
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", setAppVh, {
+            passive: true,
+          });
+          window.visualViewport.addEventListener("scroll", setAppVh, {
+            passive: true,
+          });
+        }
+      })();
+    </script>
   </head>
   <body data-page="login">
     <a class="skip-link" href="#main">Skip to content</a>
+    <div id="netlify-identity-modal-root"></div>
     <header class="site-header">
       <div class="container header-inner">
         <a class="site-brand" href="/index.html">

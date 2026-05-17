@@ -84,6 +84,22 @@ iframe[name*="netlify"] {
   border: 0;
 }
 
+@media (max-width: 768px) {
+  body[data-page="login"] iframe {
+    min-height: 26rem;
+    min-height: 70vh;
+    min-height: 70svh;
+    min-height: 70dvh;
+  }
+}
+
+/* Dedicated mount so the widget stacks above site chrome (see login.html + auth.js init). */
+#netlify-identity-modal-root {
+  position: relative;
+  z-index: 99999;
+  isolation: isolate;
+}
+
 img {
   max-width: 100%;
   height: auto;
@@ -479,7 +495,11 @@ textarea {
 /* Login: flex layout avoids odd grid + viewport interactions with fixed overlays */
 .login-wrap {
   box-sizing: border-box;
+  min-height: calc(100vh - var(--site-header-h, 72px) - 5rem);
   min-height: calc(100dvh - var(--site-header-h, 72px) - 5rem);
+  min-height: calc(
+    100 * var(--app-vh, 1vh) - var(--site-header-h, 72px) - 5rem
+  );
   display: flex;
   align-items: center;
   justify-content: center;

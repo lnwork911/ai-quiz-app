@@ -43,6 +43,15 @@
   }
 }
 
+/* Login on narrow viewports: sticky header + z-index can trap or cover Netlify Identity on WebKit. */
+@media (max-width: 767px) {
+  body[data-page="login"] .site-header {
+    position: relative;
+    top: auto;
+    z-index: 1;
+  }
+}
+
 @supports not (backdrop-filter: blur(12px)) {
   .site-header {
     background: rgba(248, 250, 252, 0.96);

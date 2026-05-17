@@ -1,0 +1,40 @@
+/**
+ * Shared brand / logo — loaded on every page so the mark looks identical
+ * (homepage uses assets/css/style.css; app pages use css/styles.css).
+ */
+
+.site-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.site-brand:hover {
+  text-decoration: none;
+}
+
+/* Square “TQ” mark — single source of truth for size, shape, and color */
+.site-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex: 0 0 auto;
+  background: radial-gradient(
+      circle at 30% 25%,
+      rgba(255, 255, 255, 0.38),
+      transparent 55%
+    ),
+    linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
+}

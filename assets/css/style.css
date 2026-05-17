@@ -310,31 +310,7 @@ button {
   pointer-events: auto;
 }
 
-.nav__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.65rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--color-dark);
-}
-
-.nav__logo {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: radial-gradient(
-      circle at 30% 25%,
-      rgba(255, 255, 255, 0.35),
-      transparent 55%
-    ),
-    linear-gradient(135deg, var(--color-primary), #1d4ed8);
-  color: var(--color-white);
-  display: grid;
-  place-items: center;
-  font-size: 0.85rem;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
-}
+/* Logo + wordmark: shared rules in /css/brand.css (.site-brand, .site-logo) */
 
 .nav__links {
   display: grid;
@@ -1144,12 +1120,7 @@ button {
   }
 }
 
-.footer__brand {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  font-weight: 900;
-  letter-spacing: -0.03em;
+.footer__brand.site-brand {
   margin-bottom: 0.65rem;
 }
 

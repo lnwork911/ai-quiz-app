@@ -18,19 +18,29 @@
   }
 }
 
-[id] {
+[id]:not(#main) {
   scroll-margin-top: calc(var(--site-header-h) + 12px);
 }
 
 .site-header {
   position: sticky;
   top: 0;
-  z-index: 1000;
+  /* Stay below Netlify Identity modal overlays (often z-index in the hundreds) */
+  z-index: 100;
   background: color-mix(in srgb, #ffffff 88%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(226, 232, 240, 0.95);
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+}
+
+/* iOS/WebKit: sticky + backdrop-filter can clip or break `position: fixed` overlays (e.g. Identity). */
+@media (max-width: 899px) {
+  .site-header {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(248, 250, 252, 0.98);
+  }
 }
 
 @supports not (backdrop-filter: blur(12px)) {

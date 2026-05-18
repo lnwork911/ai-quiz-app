@@ -1,320 +1,139 @@
 /**
- * generateQuiz.js — Production AI Quiz Generation Engine (Netlify Function).
+ * generateQuiz — authenticated teachers request an AI-generated quiz.
  *
- * Flow: validate body → rate limit → cache lookup → OpenAI pipeline → duplicate repair
- * → cache set → JSON response with meta (latency, tokens, phases).
+ * Also handles: { "action": "create_checkout_session", "plan": "starter"|"pro"|"school" }
+ * so pricing can use one secured endpoint without adding a third function file.
+ * (You may split this into createCheckoutSession.js later as traffic grows.)
  *
- * Beginners: everything important happens here on the server so keys stay secret.
+ * Method: POST
+ * Headers: Authorization: Bearer <identity-jwt>, Content-Type: application/json
  */
 
-import {
+const Stripe = require("stripe");
+const { requireAuthUser, jsonResponse } = require("./shared/auth");
+const {
   validateGenerateQuizBody,
-  validateQuizPayload,
-} from "./shared/validation.js";
-import { getRedis, getCachedQuizBothTiers, setCachedQuizBothTiers } from "./shared/cache.js";
-import {
-  resolveRateIdentity,
-  consumeRateLimitToken,
-} from "./shared/rateLimit.js";
-import {
-  generateValidatedQuizPipeline,
-  generateSimplifiedValidatedQuiz,
-  replaceDuplicateQuestions,
-} from "./shared/openai.js";
-import { mergeUsage } from "./shared/retryLogic.js";
-import {
-  findDuplicateIndexPairs,
-  indicesToReplaceFromPairs,
-} from "./shared/duplicateDetection.js";
+  validateCheckoutBody,
+} = require("./shared/validation");
+const { generateQuizWithOpenAI } = require("./shared/openai");
+const { getJson, setJson, quizCacheKey } = require("./shared/redis");
 
 /**
- * Emit one structured JSON log line (easy to grep in Netlify logs).
- * @param {Record<string, unknown>} row
+ * Resolves the Stripe Price ID for a plan from environment variables.
+ * @param {'starter'|'pro'|'school'} plan
  */
-function slog(row) {
-  console.log(
-    JSON.stringify({
-      ts: new Date().toISOString(),
-      service: "generateQuiz",
-      ...row,
-    })
-  );
+function priceIdForPlan(plan) {
+  const map = {
+    starter: process.env.STRIPE_PRICE_ID_STARTER,
+    pro: process.env.STRIPE_PRICE_ID_PRO,
+    school: process.env.STRIPE_PRICE_ID_SCHOOL,
+  };
+  return map[plan] || null;
 }
 
 /**
- * @param {import('@netlify/functions').HandlerEvent} event
+ * Public site URL for Stripe redirects (override in Netlify env).
  */
-export async function handler(event) {
-  const t0 = Date.now();
-  const requestId =
-    event.headers["x-nf-request-id"] ||
-    event.headers["X-NF-Request-Id"] ||
-    event.headers["x-request-id"] ||
-    "";
+function siteUrl() {
+  const envUrl = process.env.URL || process.env.DEPLOY_PRIME_URL;
+  if (envUrl) return envUrl.replace(/\/$/, "");
+  return "http://localhost:8888";
+}
 
+/**
+ * @type {import('@netlify/functions').Handler}
+ */
+exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 204,
-      headers: corsHeaders(),
-      body: "",
-    };
+    return { statusCode: 204, body: "" };
   }
 
   if (event.httpMethod !== "POST") {
-    return json(405, { error: "Method not allowed" }, requestId, t0);
+    return jsonResponse(405, { error: "Method not allowed" });
   }
 
   let body;
   try {
     body = event.body ? JSON.parse(event.body) : {};
   } catch {
-    return json(400, { error: "Invalid JSON body" }, requestId, t0);
+    return jsonResponse(400, { error: "Invalid JSON body" });
   }
-
-  const skipCache = !!(body && typeof body === "object" && body.skipCache);
-
-  const validated = validateGenerateQuizBody(body);
-  if (!validated.ok) {
-    slog({ level: "warn", requestId, error: "validation_failed", detail: validated.error });
-    return json(400, { error: validated.error }, requestId, t0);
-  }
-  const params = validated.params;
-
-  const redis = getRedis();
-  const identity = resolveRateIdentity(event);
-  const rl = await consumeRateLimitToken(redis, identity.tier, identity.key);
-  if (!rl.allowed) {
-    slog({
-      level: "warn",
-      requestId,
-      error: "rate_limited",
-      tier: identity.tier,
-      current: rl.current,
-      max: rl.max,
-    });
-    return {
-      statusCode: 429,
-      headers: {
-        ...corsHeaders(),
-        "content-type": "application/json",
-        "retry-after": String(rl.retryAfterSeconds || 60),
-      },
-      body: JSON.stringify({
-        error: "Rate limit exceeded",
-        retryAfterSeconds: rl.retryAfterSeconds,
-        tier: identity.tier,
-        maxPerWindow: rl.max,
-      }),
-    };
-  }
-
-  if (!skipCache) {
-    const cached = await getCachedQuizBothTiers(redis, params);
-    if (cached && cached.quiz) {
-      const v = validateQuizPayload(cached.quiz);
-      if (v.ok) {
-        const latencyMs = Date.now() - t0;
-        slog({
-          level: "info",
-          requestId,
-          outcome: "cache_hit",
-          cacheTier: cached.tier,
-          latencyMs,
-          tier: identity.tier,
-        });
-        return json(
-          200,
-          {
-            quiz: v.quiz,
-            meta: {
-              cached: true,
-              cacheTier: cached.tier,
-              latencyMs,
-              requestId,
-              rateLimit: { tier: identity.tier, count: rl.current, max: rl.max },
-              usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-              phases: ["cache"],
-            },
-          },
-          requestId,
-          t0,
-          false
-        );
-      }
-    }
-  }
-
-  const usageTotal = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-  const phases = /** @type {string[]} */ ([]);
 
   try {
-    let gen = await generateValidatedQuizPipeline(params);
-    mergeUsage(usageTotal, gen.usage);
-    phases.push(...(gen.phases || []));
+    const auth = requireAuthUser(event);
 
-    if (!gen.ok) {
-      slog({
-        level: "warn",
-        requestId,
-        error: "primary_pipeline_failed",
-        detail: gen.error,
-      });
-      const simple = await generateSimplifiedValidatedQuiz(params);
-      mergeUsage(usageTotal, simple.usage);
-      phases.push(...(simple.phases || []));
-      if (!simple.ok) {
-        slog({
-          level: "error",
-          requestId,
-          error: "simplified_failed",
-          detail: simple.error,
+    // --- Stripe checkout branch (subscriptions / billing) ---
+    if (body && typeof body === "object" && "action" in body) {
+      const { plan } = validateCheckoutBody(body);
+      const secret = process.env.STRIPE_SECRET_KEY;
+      if (!secret) {
+        return jsonResponse(500, {
+          error:
+            "Stripe is not configured (missing STRIPE_SECRET_KEY on the server).",
         });
-        return json(
-          422,
-          {
-            error: "Unable to generate a valid quiz",
-            detail: simple.error,
-            meta: {
-              cached: false,
-              latencyMs: Date.now() - t0,
-              requestId,
-              usage: usageTotal,
-              phases,
-            },
-          },
-          requestId,
-          t0
-        );
       }
-      gen = simple;
-    }
 
-    let quiz = gen.quiz;
-    for (let round = 0; round < 2; round++) {
-      const pairs = findDuplicateIndexPairs(
-        /** @type {Array<Record<string, unknown>>} */ (quiz.questions)
-      );
-      if (pairs.length === 0) break;
-      const idx = indicesToReplaceFromPairs(pairs);
-      slog({
-        level: "info",
-        requestId,
-        msg: "duplicate_questions_detected",
-        count: idx.length,
-        round,
+      const priceId = priceIdForPlan(plan);
+      if (!priceId) {
+        return jsonResponse(500, {
+          error: `Missing Stripe price ID env for plan "${plan}". ` +
+            "Set STRIPE_PRICE_ID_STARTER, STRIPE_PRICE_ID_PRO, and/or STRIPE_PRICE_ID_SCHOOL.",
+        });
+      }
+
+      const stripe = new Stripe(secret);
+      const base = siteUrl();
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${base}/dashboard.html?checkout=success`,
+        cancel_url: `${base}/pricing.html?checkout=cancel`,
+        client_reference_id: auth.userId,
+        customer_email: auth.email || undefined,
+        allow_promotion_codes: true,
+        metadata: {
+          netlify_user_id: auth.userId,
+          plan,
+        },
       });
-      const rep = await replaceDuplicateQuestions(quiz, idx, params);
-      mergeUsage(usageTotal, rep.usage);
-      phases.push("duplicate_replace");
-      if (!rep.ok) {
-        slog({ level: "warn", requestId, error: "duplicate_replace_failed", detail: rep.error });
-        break;
+
+      if (!session.url) {
+        return jsonResponse(500, { error: "Stripe did not return a checkout URL" });
       }
-      quiz = rep.quiz;
+
+      return jsonResponse(200, { url: session.url });
     }
 
-    const finalCheck = validateQuizPayload(quiz);
-    if (!finalCheck.ok) {
-      return json(
-        422,
-        {
-          error: "Quiz failed final validation",
-          detail: finalCheck.error,
-          meta: {
-            cached: false,
-            latencyMs: Date.now() - t0,
-            requestId,
-            usage: usageTotal,
-            phases,
-          },
-        },
-        requestId,
-        t0
-      );
+    // --- Quiz generation branch ---
+    const params = validateGenerateQuizBody(body);
+
+    const cacheKey = quizCacheKey(auth.userId, params);
+    const ttl = parseInt(process.env.QUIZ_CACHE_TTL_SECONDS || "86400", 10);
+
+    const cached = await getJson(cacheKey);
+    if (cached && typeof cached === "object") {
+      return jsonResponse(200, {
+        quiz: cached,
+        cached: true,
+      });
     }
 
-    if (!skipCache) {
-      await setCachedQuizBothTiers(redis, params, finalCheck.quiz);
-    }
+    const quiz = await generateQuizWithOpenAI(params);
+    await setJson(cacheKey, quiz, ttl);
 
-    const latencyMs = Date.now() - t0;
-    slog({
-      level: "info",
-      requestId,
-      outcome: "generated",
-      latencyMs,
-      prompt_tokens: usageTotal.prompt_tokens,
-      completion_tokens: usageTotal.completion_tokens,
-      total_tokens: usageTotal.total_tokens,
-      tier: identity.tier,
+    return jsonResponse(200, {
+      quiz,
+      cached: false,
     });
-
-    return json(
-      200,
-      {
-        quiz: finalCheck.quiz,
-        meta: {
-          cached: false,
-          latencyMs,
-          requestId,
-          rateLimit: { tier: identity.tier, count: rl.current, max: rl.max },
-          usage: usageTotal,
-          phases,
-        },
-      },
-      requestId,
-      t0,
-      false
-    );
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    slog({
-      level: "error",
-      requestId,
-      error: "unhandled_exception",
-      detail: message,
-    });
-    return json(
-      500,
-      {
-        error: "Server error",
-        detail: message,
-        meta: { latencyMs: Date.now() - t0, requestId, phases },
-      },
-      requestId,
-      t0
-    );
+    const status = /** @type {{ statusCode?: number }} */ (err).statusCode || 500;
+    const message =
+      status === 401
+        ? "Unauthorized"
+        : err instanceof Error
+          ? err.message
+          : "Server error";
+    return jsonResponse(status, { error: message });
   }
-}
-
-function corsHeaders() {
-  return {
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "POST, OPTIONS",
-    "access-control-allow-headers": "Content-Type, Authorization",
-  };
-}
-
-/**
- * @param {number} statusCode
- * @param {object} payload
- * @param {string} requestId
- * @param {number} t0
- * @param {boolean} [mergeLatency=true]
- */
-function json(statusCode, payload, requestId, t0, mergeLatency = true) {
-  const out =
-    mergeLatency && payload && typeof payload === "object" && !payload.meta
-      ? { ...payload, meta: { ...(payload.meta || {}), latencyMs: Date.now() - t0, requestId } }
-      : mergeLatency && payload.meta
-        ? {
-            ...payload,
-            meta: { ...payload.meta, latencyMs: Date.now() - t0, requestId },
-          }
-        : payload;
-  return {
-    statusCode,
-    headers: { ...corsHeaders(), "content-type": "application/json" },
-    body: JSON.stringify(out),
-  };
-}
+};

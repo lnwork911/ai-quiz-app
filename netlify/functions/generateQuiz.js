@@ -178,12 +178,10 @@ exports.handler = async (event) => {
     });
   } catch (err) {
     const status = /** @type {{ statusCode?: number }} */ (err).statusCode || 500;
-    let message =
+    const message =
       err instanceof Error ? err.message : "Server error";
 
-    if (status === 401) {
-      message = "Unauthorized";
-    } else if (isOpenAiAuthError(err)) {
+    if (isOpenAiAuthError(err)) {
       return jsonResponse(503, {
         error:
           "OpenAI rejected the API key. Set a valid OPENAI_API_KEY in Netlify environment variables.",

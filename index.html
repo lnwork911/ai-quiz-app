@@ -48,12 +48,17 @@ button { background:#1e2a4a; color:white; padding:10px 15px; border:none; margin
 <button onclick="joinClass()">Join Class</button>
 
 <p id="classDisplay"></p>
-<label>Difficulty:</label>
-<select id="difficulty">
-<option value="easy">Easy</option>
-<option value="medium" selected>Medium</option>
-<option value="hard">Hard</option>
+<label>Difficulty level (1–5, adaptive):</label>
+<select id="difficultyLevel">
+<option value="1">1 — recall</option>
+<option value="2">2 — basic</option>
+<option value="3" selected>3 — apply</option>
+<option value="4">4 — analyze</option>
+<option value="5">5 — challenge</option>
 </select>
+<p class="field-hint" style="font-size:13px;color:#555;margin:4px 0 8px;">
+  Question types: MCQ, true/false, short answer, fill-in-the-blank (use <code>_____</code> in stems).
+</p>
 
 <textarea id="source" rows="6" placeholder="Paste lesson text"></textarea>
 <button onclick="generate()">Generate Quiz</button>
@@ -68,7 +73,7 @@ button { background:#1e2a4a; color:white; padding:10px 15px; border:none; margin
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <script>
-let currentUser=null,quizData=[],userAnswers=[],currentIndex=0,score=0,timerInterval,timeLeft=20,isPaused=false;
+let currentUser=null,quizData=[],userAnswers=[],currentIndex=0,score=0,timerInterval,timeLeft=20,isPaused=false,lastQuizMeta=null;
 
 netlifyIdentity.on("init", user => {
   if (user) {
@@ -99,7 +104,6 @@ netlifyIdentity.on("login", async user => {
 
 function logout(){netlifyIdentity.logout();location.reload();}
 //const source=source.value;
-const sourceText = document.getElementById("source").value;
 async function generate(){
 
   if(!currentUser){
@@ -107,57 +111,217 @@ async function generate(){
     return;
   }
 
-  const sourceText = document.getElementById("source").value;
-  const difficulty = document.getElementById("difficulty").value;
+  const topic = document.getElementById("source").value.trim();
+  if(!topic){ alert("Paste a topic or lesson text first"); return; }
 
-const res=await fetch("/.netlify/functions/generate",{method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({source,userId:currentUser.id,difficulty})});
+  const difficultyLevel = parseInt(document.getElementById("difficultyLevel").value,10) || 3;
+  let token = null;
+  try {
+    if (typeof currentUser.jwt === "function") {
+      token = await currentUser.jwt();
+    }
+  } catch (e) {}
+  if (!token && currentUser.token) {
+    token = currentUser.token.access_token;
+  }
 
-const data=await res.json();
-if(data.error){quizArea.innerText=data.error;return;}
+  const res = await fetch("/.netlify/functions/generateQuiz", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+    },
+    body: JSON.stringify({
+      topic,
+      gradeLevel: "General",
+      questionCount: 6,
+      difficultyLevel,
+      questionTypes: ["mcq", "true_false", "short_answer", "fill_blank"],
+    }),
+  });
 
-quizData=data.quiz.questions.map(q=>shuffleQuestion(q));
-userAnswers=[];currentIndex=0;score=0;
-creditDisplay.innerText="Credits: "+data.remainingCredits;
-showQuestion();
+  const data = await res.json();
+  if (!res.ok) {
+    quizArea.innerText = (data && data.error) ? data.error : ("HTTP " + res.status);
+    return;
+  }
+
+  lastQuizMeta = data.meta || null;
+  const u = (lastQuizMeta && lastQuizMeta.usage) ? lastQuizMeta.usage : {};
+  creditDisplay.innerText =
+    "Last request — cached: " + !!(lastQuizMeta && lastQuizMeta.cached) +
+    " | tokens: " + (u.total_tokens != null ? u.total_tokens : "—") +
+    " | latency ms: " + (lastQuizMeta && lastQuizMeta.latencyMs != null ? lastQuizMeta.latencyMs : "—");
+
+  quizData = data.quiz.questions.map((q) => prepareQuestionForUi(q));
+  userAnswers = [];
+  currentIndex = 0;
+  score = 0;
+  showQuestion();
 }
 
-function shuffleQuestion(q){
-let options=[...q.options];
-let correct=options[q.correctIndex];
-options.sort(()=>Math.random()-0.5);
-return {...q,options,correctIndex:options.indexOf(correct)};
+/** Normalize server question into UI-friendly shape (shuffle MCQ options). */
+function prepareQuestionForUi(q) {
+  if (q.type === "mcq" && Array.isArray(q.options)) {
+    return shuffleMcq(q);
+  }
+  return { ...q };
+}
+
+function shuffleMcq(q) {
+  const options = [...q.options];
+  const correct = options[q.correctIndex];
+  options.sort(() => Math.random() - 0.5);
+  return { ...q, options, correctIndex: options.indexOf(correct) };
+}
+
+function stemHtml(q) {
+  const t = q.stem || q.question || "";
+  return t.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function showQuestion(){
 if(currentIndex>=quizData.length){finishQuiz();return;}
 let progress=(currentIndex/quizData.length)*100;
 let q=quizData[currentIndex];
+const stem = stemHtml(q);
 
-quizArea.innerHTML=`
+if (q.type === "mcq") {
+  quizArea.innerHTML = `
 <div class="progress"><div class="progress-bar" style="width:${progress}%"></div></div>
-<p>Question ${currentIndex+1}/${quizData.length}</p>
+<p>Question ${currentIndex+1}/${quizData.length} <span style="font-size:12px;color:#666">(multiple choice)</span></p>
 <p>Time: <span id="timer">20</span>s</p>
-<h3>${q.question}</h3>
-${q.options.map((o,i)=>`<button class="option-btn" onclick="checkAnswer(${i})">${o}</button>`).join("")}
+<h3>${stem}</h3>
+${q.options.map((o,i)=>`<button class="option-btn" onclick="checkMcq(${i})">${String(o).replace(/</g,"&lt;")}</button>`).join("")}
 `;
-startTimer();
+  startTimer(20);
+  return;
 }
 
-function startTimer(){
-timeLeft=20;
+if (q.type === "true_false") {
+  quizArea.innerHTML = `
+<div class="progress"><div class="progress-bar" style="width:${progress}%"></div></div>
+<p>Question ${currentIndex+1}/${quizData.length} <span style="font-size:12px;color:#666">(true / false)</span></p>
+<p>Time: <span id="timer">20</span>s</p>
+<h3>${stem}</h3>
+<button class="option-btn" onclick="checkTrueFalse(true)">True</button>
+<button class="option-btn" onclick="checkTrueFalse(false)">False</button>
+`;
+  startTimer(20);
+  return;
+}
+
+if (q.type === "short_answer") {
+  quizArea.innerHTML = `
+<div class="progress"><div class="progress-bar" style="width:${progress}%"></div></div>
+<p>Question ${currentIndex+1}/${quizData.length} <span style="font-size:12px;color:#666">(short answer)</span></p>
+<p>Time: <span id="timer">40</span>s</p>
+<h3>${stem}</h3>
+<input id="saInput" type="text" style="width:100%;padding:10px;margin:8px 0;box-sizing:border-box;" placeholder="Your answer" />
+<button class="option-btn" onclick="checkShortAnswer()">Submit</button>
+`;
+  timeLeft = 40;
+  startTimer(40);
+  return;
+}
+
+if (q.type === "fill_blank") {
+  quizArea.innerHTML = `
+<div class="progress"><div class="progress-bar" style="width:${progress}%"></div></div>
+<p>Question ${currentIndex+1}/${quizData.length} <span style="font-size:12px;color:#666">(fill blanks)</span></p>
+<p>Time: <span id="timer">40</span>s</p>
+<div style="font-size:1.1rem;line-height:2;">${buildFillBlankHtml(q)}</div>
+<button class="option-btn" onclick="checkFillBlank()">Submit</button>
+`;
+  timeLeft = 40;
+  startTimer(40);
+  return;
+}
+
+quizArea.innerHTML = "<p>Unsupported question type.</p>";
+}
+
+function buildFillBlankHtml(q) {
+  const parts = String(q.stem || "").split("_____");
+  const n = (q.blanks && q.blanks.length) ? q.blanks.length : Math.max(0, parts.length - 1);
+  let out = "";
+  for (let i = 0; i < n; i++) {
+    const seg = parts[i] != null ? String(parts[i]) : "";
+    out += seg.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    out += `<input id="fb${i}" type="text" style="width:130px;padding:6px;margin:0 4px;" placeholder="${i+1}" />`;
+  }
+  if (parts.length > n) {
+    out += String(parts[parts.length - 1]).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  return out;
+}
+
+function startTimer(initialSeconds){
+timeLeft = typeof initialSeconds === "number" ? initialSeconds : 20;
+if(timerInterval)clearInterval(timerInterval);
 timerInterval=setInterval(()=>{
 if(isPaused)return;
 timeLeft--;
-timer.innerText=timeLeft;
+const el=document.getElementById("timer");
+if(el)el.innerText=timeLeft;
 if(timeLeft<=0){clearInterval(timerInterval);userAnswers.push(null);currentIndex++;showQuestion();}
 },1000);
 }
 
-function checkAnswer(i){
+function checkMcq(i){
 clearInterval(timerInterval);
-userAnswers.push(i);
-if(i===quizData[currentIndex].correctIndex)score++;
+const q=quizData[currentIndex];
+userAnswers.push({ kind:"mcq", index:i });
+if(i===q.correctIndex)score++;
+currentIndex++;showQuestion();
+}
+
+function checkTrueFalse(val){
+clearInterval(timerInterval);
+const q=quizData[currentIndex];
+userAnswers.push({ kind:"tf", value:val });
+if(val===q.correctBoolean)score++;
+currentIndex++;showQuestion();
+}
+
+function normAns(s, ci){
+const t=String(s||"").trim();
+return ci?t.toLowerCase():t;
+}
+
+function checkShortAnswer(){
+clearInterval(timerInterval);
+const q=quizData[currentIndex];
+const raw=document.getElementById("saInput");
+const val=raw?raw.value:"";
+const ci=!!q.caseInsensitive;
+const n=normAns(val,ci);
+const ok=(q.acceptableAnswers||[]).some(a=>normAns(a,ci)===n);
+userAnswers.push({ kind:"short", text:val });
+if(ok)score++;
+currentIndex++;showQuestion();
+}
+
+function checkFillBlank(){
+clearInterval(timerInterval);
+const q=quizData[currentIndex];
+const blanks=q.blanks||[];
+const vals=[];
+let all=true;
+for(let i=0;i<blanks.length;i++){
+const inp=document.getElementById("fb"+i);
+const v=inp?inp.value:"";
+vals.push(v);
+const ci=!!q.caseInsensitive;
+const n=normAns(v,ci);
+const b=blanks[i]||{};
+const primary=(b.answers||[]).map(x=>normAns(x,ci));
+const alt=(b.alternatives||[]).map(x=>normAns(x,ci));
+const hit=primary.includes(n)||alt.includes(n);
+if(!hit)all=false;
+}
+userAnswers.push({ kind:"fill", values:vals });
+if(all)score++;
 currentIndex++;showQuestion();
 }
 
@@ -169,21 +333,59 @@ let weak=[];
 let html=`<h2>Score ${score}/${quizData.length}</h2>`;
 
 quizData.forEach((q,i)=>{
-let ua=userAnswers[i];
-let correct=ua===q.correctIndex;
-if(!correct)weak.push(q.question);
+const ua=userAnswers[i];
+let correct=false;
+let yourLine="";
+let correctLine="";
+
+if(q.type==="mcq"){
+  const idx=ua&&ua.kind==="mcq"?ua.index:null;
+  correct=idx===q.correctIndex;
+  yourLine=idx!==null&&q.options?q.options[idx]:"No answer";
+  correctLine=q.options?q.options[q.correctIndex]:"";
+}
+else if(q.type==="true_false"){
+  const v=ua&&ua.kind==="tf"?ua.value:null;
+  correct=v===q.correctBoolean;
+  yourLine=v===null?"No answer":String(v);
+  correctLine=String(q.correctBoolean);
+}
+else if(q.type==="short_answer"){
+  const t=ua&&ua.kind==="short"?ua.text:"";
+  const ci=!!q.caseInsensitive;
+  const n=normAns(t,ci);
+  correct=(q.acceptableAnswers||[]).some(a=>normAns(a,ci)===n);
+  yourLine=t||"No answer";
+  correctLine=(q.acceptableAnswers||[]).join(" OR ");
+}
+else if(q.type==="fill_blank"){
+  const vals=ua&&ua.kind==="fill"?ua.values:[];
+  const blanks=q.blanks||[];
+  correct=true;
+  for(let j=0;j<blanks.length;j++){
+    const ci=!!q.caseInsensitive;
+    const n=normAns(vals[j],ci);
+    const b=blanks[j]||{};
+    const primary=(b.answers||[]).map(x=>normAns(x,ci));
+    const alt=(b.alternatives||[]).map(x=>normAns(x,ci));
+    if(!primary.includes(n)&&!alt.includes(n))correct=false;
+  }
+  yourLine=(vals&&vals.length)?vals.join(" | "):"No answer";
+  correctLine=blanks.map(b=>(b.answers&&b.answers[0])?b.answers[0]:"?").join(" | ");
+}
+
+const label=q.stem||q.question||"(question)";
+if(!correct)weak.push(label);
 html+=`
-<p><strong>${q.question}</strong></p>
-<p class="${correct?'correct':'wrong'}">
-Your: ${ua!==null?q.options[ua]:"No answer"}
-</p>
-<p class="correct">Correct: ${q.options[q.correctIndex]}</p>
-<p>${q.explanation}</p><hr>
+<p><strong>${label.replace(/</g,"&lt;")}</strong> <span style="font-size:12px;color:#666">(${q.type})</span></p>
+<p class="${correct?'correct':'wrong'}">Your: ${String(yourLine).replace(/</g,"&lt;")}</p>
+<p class="correct">Correct: ${String(correctLine).replace(/</g,"&lt;")}</p>
+<p>${String(q.explanation||"").replace(/</g,"&lt;")}</p><hr>
 `;
 });
 
 if(weak.length>0){
-html+=`<h3>Recommended Review:</h3><ul>${weak.map(w=>`<li>${w}</li>`).join("")}</ul>`;
+html+=`<h3>Recommended Review:</h3><ul>${weak.map(w=>`<li>${String(w).replace(/</g,"&lt;")}</li>`).join("")}</ul>`;
 }
 
 html+=`<button onclick="exportPDF()">Export PDF</button>`;

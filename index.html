@@ -140,9 +140,18 @@ async function generate(){
     }),
   });
 
-  const data = await res.json();
+  const rawText = await res.text();
+  let data = {};
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    data = { error: rawText.slice(0, 400) || "Invalid response (not JSON)" };
+  }
+
   if (!res.ok) {
-    quizArea.innerText = (data && data.error) ? data.error : ("HTTP " + res.status);
+    const main = typeof data.error === "string" ? data.error : "";
+    const detail = typeof data.detail === "string" ? data.detail : "";
+    quizArea.innerText = [main, detail].filter(Boolean).join("\n\n") || "HTTP " + res.status;
     return;
   }
 

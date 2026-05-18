@@ -42,6 +42,94 @@ function slog(row) {
 }
 
 /**
+ * Upstash (wrong token) and some proxies return 401 "Unauthorized" — do not fail quiz generation.
+ * @param {unknown} err
+ */
+function isRedisUnauthorizedError(err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /401|unauthorized/i.test(msg);
+}
+
+/**
+ * @param {unknown} err — often OpenAI AuthenticationError
+ */
+function isOpenAiAuthError(err) {
+  const o = /** @type {Record<string, unknown>} */ (err && typeof err === "object" ? err : {});
+  const status = o.status ?? o.statusCode;
+  if (status === 401) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /401|incorrect api key|invalid api key|authentication/i.test(msg);
+}
+
+/**
+ * @param {import('@upstash/redis').Redis | null} redis
+ * @param {{ tier: string, key: string }} identity
+ */
+async function safeConsumeRateLimit(redis, identity) {
+  if (!redis) {
+    return { allowed: true, current: 0, max: 999, retryAfterSeconds: 0, skipped: true };
+  }
+  try {
+    return await consumeRateLimitToken(redis, identity.tier, identity.key);
+  } catch (e) {
+    if (isRedisUnauthorizedError(e)) {
+      slog({
+        level: "warn",
+        msg: "redis_unauthorized_skipping_rate_limit",
+        hint: "Fix UPSTASH_REDIS_REST_TOKEN or remove wrong Redis env vars",
+      });
+    } else {
+      slog({ level: "warn", msg: "redis_rate_limit_error", detail: String(e) });
+    }
+    return { allowed: true, current: 0, max: 999, retryAfterSeconds: 0, skipped: true };
+  }
+}
+
+/**
+ * @param {import('@upstash/redis').Redis | null} redis
+ * @param {object} params
+ */
+async function safeGetCachedQuiz(redis, params) {
+  if (!redis) return null;
+  try {
+    return await getCachedQuizBothTiers(redis, params);
+  } catch (e) {
+    if (isRedisUnauthorizedError(e)) {
+      slog({
+        level: "warn",
+        msg: "redis_unauthorized_skipping_cache_read",
+        hint: "Fix UPSTASH_REDIS_REST_TOKEN or remove wrong Redis env vars",
+      });
+    } else {
+      slog({ level: "warn", msg: "redis_cache_read_error", detail: String(e) });
+    }
+    return null;
+  }
+}
+
+/**
+ * @param {import('@upstash/redis').Redis | null} redis
+ * @param {object} params
+ * @param {object} quiz
+ */
+async function safeSetCachedQuiz(redis, params, quiz) {
+  if (!redis) return;
+  try {
+    await setCachedQuizBothTiers(redis, params, quiz);
+  } catch (e) {
+    if (isRedisUnauthorizedError(e)) {
+      slog({
+        level: "warn",
+        msg: "redis_unauthorized_skipping_cache_write",
+        hint: "Fix UPSTASH_REDIS_REST_TOKEN or remove wrong Redis env vars",
+      });
+    } else {
+      slog({ level: "warn", msg: "redis_cache_write_error", detail: String(e) });
+    }
+  }
+}
+
+/**
  * @param {import('@netlify/functions').HandlerEvent} event
  */
 export async function handler(event) {
@@ -82,7 +170,7 @@ export async function handler(event) {
 
   const redis = getRedis();
   const identity = resolveRateIdentity(event);
-  const rl = await consumeRateLimitToken(redis, identity.tier, identity.key);
+  const rl = await safeConsumeRateLimit(redis, identity);
   if (!rl.allowed) {
     slog({
       level: "warn",
@@ -109,7 +197,7 @@ export async function handler(event) {
   }
 
   if (!skipCache) {
-    const cached = await getCachedQuizBothTiers(redis, params);
+    const cached = await safeGetCachedQuiz(redis, params);
     if (cached && cached.quiz) {
       const v = validateQuizPayload(cached.quiz);
       if (v.ok) {
@@ -234,7 +322,7 @@ export async function handler(event) {
     }
 
     if (!skipCache) {
-      await setCachedQuizBothTiers(redis, params, finalCheck.quiz);
+      await safeSetCachedQuiz(redis, params, finalCheck.quiz);
     }
 
     const latencyMs = Date.now() - t0;
@@ -274,6 +362,19 @@ export async function handler(event) {
       error: "unhandled_exception",
       detail: message,
     });
+    if (isOpenAiAuthError(err)) {
+      return json(
+        503,
+        {
+          error:
+            "OpenAI rejected the API key (401). In Netlify → Site settings → Environment variables, set a valid OPENAI_API_KEY and redeploy.",
+          detail: message,
+          meta: { latencyMs: Date.now() - t0, requestId, phases },
+        },
+        requestId,
+        t0
+      );
+    }
     return json(
       500,
       {

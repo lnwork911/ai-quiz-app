@@ -1,335 +1,110 @@
 /**
- * validation.js — HTTP body validation + strict Ajv JSON Schema for quiz payloads.
- *
- * Beginners: the server never trusts the model; we validate shape before caching/serving.
+ * Lightweight request validation (no extra dependencies).
+ * Keeps inputs predictable for OpenAI prompts and Redis cache keys.
  */
 
-import Ajv from "ajv";
-import addFormats from "ajv-formats";
+const TOPIC_MAX = 500;
+const GRADE_MAX = 80;
 
-const ajv = new Ajv({ allErrors: true, strict: true });
-addFormats(ajv);
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function asTrimmedString(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
 
-const QUIZ_JSON_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  required: ["schemaVersion", "title", "difficultyLevel", "questions"],
-  properties: {
-    schemaVersion: { type: "integer", const: 2 },
-    title: { type: "string", minLength: 1, maxLength: 200 },
-    difficultyLevel: { type: "integer", minimum: 1, maximum: 5 },
-    questions: {
-      type: "array",
-      minItems: 1,
-      maxItems: 25,
-      items: {
-        oneOf: [
-          {
-            type: "object",
-            additionalProperties: false,
-            required: [
-              "id",
-              "type",
-              "stem",
-              "options",
-              "correctIndex",
-              "explanation",
-              "feedbackCorrect",
-              "feedbackIncorrect",
-            ],
-            properties: {
-              id: { type: "string", maxLength: 40 },
-              type: { const: "mcq" },
-              stem: { type: "string", minLength: 1, maxLength: 900 },
-              options: {
-                type: "array",
-                minItems: 4,
-                maxItems: 4,
-                items: { type: "string", minLength: 1, maxLength: 400 },
-              },
-              correctIndex: { type: "integer", minimum: 0, maximum: 3 },
-              explanation: { type: "string", minLength: 1, maxLength: 450 },
-              feedbackCorrect: { type: "string", minLength: 1, maxLength: 220 },
-              feedbackIncorrect: { type: "string", minLength: 1, maxLength: 220 },
-            },
-          },
-          {
-            type: "object",
-            additionalProperties: false,
-            required: [
-              "id",
-              "type",
-              "stem",
-              "correctBoolean",
-              "explanation",
-              "feedbackCorrect",
-              "feedbackIncorrect",
-            ],
-            properties: {
-              id: { type: "string", maxLength: 40 },
-              type: { const: "true_false" },
-              stem: { type: "string", minLength: 1, maxLength: 900 },
-              correctBoolean: { type: "boolean" },
-              explanation: { type: "string", minLength: 1, maxLength: 450 },
-              feedbackCorrect: { type: "string", minLength: 1, maxLength: 220 },
-              feedbackIncorrect: { type: "string", minLength: 1, maxLength: 220 },
-            },
-          },
-          {
-            type: "object",
-            additionalProperties: false,
-            required: [
-              "id",
-              "type",
-              "stem",
-              "acceptableAnswers",
-              "caseInsensitive",
-              "explanation",
-              "feedbackCorrect",
-              "feedbackIncorrect",
-            ],
-            properties: {
-              id: { type: "string", maxLength: 40 },
-              type: { const: "short_answer" },
-              stem: { type: "string", minLength: 1, maxLength: 900 },
-              acceptableAnswers: {
-                type: "array",
-                minItems: 1,
-                maxItems: 6,
-                items: { type: "string", minLength: 1, maxLength: 200 },
-              },
-              caseInsensitive: { type: "boolean" },
-              explanation: { type: "string", minLength: 1, maxLength: 450 },
-              feedbackCorrect: { type: "string", minLength: 1, maxLength: 220 },
-              feedbackIncorrect: { type: "string", minLength: 1, maxLength: 220 },
-            },
-          },
-          {
-            type: "object",
-            additionalProperties: false,
-            required: [
-              "id",
-              "type",
-              "stem",
-              "blanks",
-              "caseInsensitive",
-              "explanation",
-              "feedbackCorrect",
-              "feedbackIncorrect",
-            ],
-            properties: {
-              id: { type: "string", maxLength: 40 },
-              type: { const: "fill_blank" },
-              stem: { type: "string", minLength: 1, maxLength: 900 },
-              blanks: {
-                type: "array",
-                minItems: 1,
-                maxItems: 6,
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["answers"],
-                  properties: {
-                    answers: {
-                      type: "array",
-                      minItems: 1,
-                      maxItems: 8,
-                      items: { type: "string", minLength: 1, maxLength: 120 },
-                    },
-                    alternatives: {
-                      type: "array",
-                      maxItems: 12,
-                      items: { type: "string", minLength: 1, maxLength: 120 },
-                    },
-                  },
-                },
-              },
-              caseInsensitive: { type: "boolean" },
-              explanation: { type: "string", minLength: 1, maxLength: 450 },
-              feedbackCorrect: { type: "string", minLength: 1, maxLength: 220 },
-              feedbackIncorrect: { type: "string", minLength: 1, maxLength: 220 },
-            },
-          },
-        ],
-      },
-    },
-  },
+/**
+ * Validates quiz generation payload from the client.
+ * @param {unknown} rawBody Parsed JSON body
+ * @returns {{ topic: string, gradeLevel: string, questionCount: number, difficulty: 'easy'|'medium'|'hard' }}
+ */
+function validateGenerateQuizBody(rawBody) {
+  if (!rawBody || typeof rawBody !== "object") {
+    const err = new Error("Invalid JSON body");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const body = /** @type {Record<string, unknown>} */ (rawBody);
+
+  const topic = asTrimmedString(body.topic);
+  if (!topic || topic.length > TOPIC_MAX) {
+    const err = new Error(
+      `topic is required and must be 1–${TOPIC_MAX} characters`
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const gradeLevel = asTrimmedString(body.gradeLevel);
+  if (!gradeLevel || gradeLevel.length > GRADE_MAX) {
+    const err = new Error(
+      `gradeLevel is required and must be 1–${GRADE_MAX} characters`
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const rawCount = body.questionCount;
+  const questionCount =
+    typeof rawCount === "number"
+      ? rawCount
+      : typeof rawCount === "string"
+        ? parseInt(rawCount, 10)
+        : NaN;
+
+  if (!Number.isFinite(questionCount) || questionCount < 1 || questionCount > 20) {
+    const err = new Error("questionCount must be an integer from 1 to 20");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const difficultyRaw = asTrimmedString(body.difficulty).toLowerCase();
+  const allowed = ["easy", "medium", "hard"];
+  const difficulty = /** @type {'easy'|'medium'|'hard'} */ (
+    allowed.includes(difficultyRaw) ? difficultyRaw : "medium"
+  );
+
+  return { topic, gradeLevel, questionCount, difficulty };
+}
+
+const CHECKOUT_PLANS = ["starter", "pro", "school"];
+
+/**
+ * Validates Stripe checkout payload (subscription checkout session).
+ * @param {unknown} rawBody
+ * @returns {{ plan: 'starter'|'pro'|'school' }}
+ */
+function validateCheckoutBody(rawBody) {
+  if (!rawBody || typeof rawBody !== "object") {
+    const err = new Error("Invalid JSON body");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const body = /** @type {Record<string, unknown>} */ (rawBody);
+  const action = asTrimmedString(body.action).toLowerCase();
+  if (action !== "create_checkout_session") {
+    const err = new Error("Unknown action");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const planRaw = asTrimmedString(body.plan).toLowerCase();
+  if (!CHECKOUT_PLANS.includes(planRaw)) {
+    const err = new Error(
+      `plan must be one of: ${CHECKOUT_PLANS.join(", ")}`
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+
+  return { plan: /** @type {'starter'|'pro'|'school'} */ (planRaw) };
+}
+
+module.exports = {
+  validateGenerateQuizBody,
+  validateCheckoutBody,
 };
-
-const validateQuizAjv = ajv.compile(QUIZ_JSON_SCHEMA);
-
-const ALLOWED_TYPES = ["mcq", "true_false", "short_answer", "fill_blank"];
-
-/**
- * Count "_____" placeholders in fill-blank stem.
- * @param {string} stem
- */
-export function countFillBlankSlots(stem) {
-  if (typeof stem !== "string") return 0;
-  const re = /_____/g;
-  let m;
-  let c = 0;
-  while ((m = re.exec(stem)) !== null) c++;
-  return c;
-}
-
-/**
- * Extra semantic checks Ajv cannot express cheaply.
- * @param {unknown} data
- */
-export function semanticQuizChecks(data) {
-  if (!data || typeof data !== "object") return "Quiz is not an object";
-  const quiz = /** @type {Record<string, unknown>} */ (data);
-  const questions = quiz.questions;
-  if (!Array.isArray(questions)) return "questions not array";
-  const ids = new Set();
-  for (let i = 0; i < questions.length; i++) {
-    const q = questions[i];
-    if (!q || typeof q !== "object") return `Question ${i} invalid`;
-    const o = /** @type {Record<string, unknown>} */ (q);
-    const id = o.id;
-    if (typeof id === "string") {
-      if (ids.has(id)) return `Duplicate id ${id}`;
-      ids.add(id);
-    }
-    if (o.type === "fill_blank") {
-      const stem = typeof o.stem === "string" ? o.stem : "";
-      const blanks = Array.isArray(o.blanks) ? o.blanks : [];
-      const slots = countFillBlankSlots(stem);
-      if (slots === 0) return `fill_blank ${i}: stem needs _____ placeholders`;
-      if (blanks.length !== slots) {
-        return `fill_blank ${i}: blanks length ${blanks.length} != placeholder count ${slots}`;
-      }
-    }
-    if (o.type === "mcq" && Array.isArray(o.options)) {
-      const opts = o.options.map(String);
-      const sset = new Set(opts.map((x) => x.toLowerCase().trim()));
-      if (sset.size !== opts.length) return `mcq ${i}: options must be distinct`;
-    }
-  }
-  return null;
-}
-
-/**
- * Validate quiz object against JSON Schema + semantic rules.
- * @param {unknown} data
- * @returns {{ ok: true, quiz: object } | { ok: false, error: string }}
- */
-export function validateQuizPayload(data) {
-  if (!validateQuizAjv(data)) {
-    const msg = ajv.errorsText(validateQuizAjv.errors, { separator: " | " });
-    return { ok: false, error: msg || "Schema validation failed" };
-  }
-  const sem = semanticQuizChecks(data);
-  if (sem) return { ok: false, error: sem };
-  return { ok: true, quiz: /** @type {object} */ (data) };
-}
-
-/**
- * Validate replacement questions array (same item schema as quiz.questions items).
- * @param {unknown} data
- */
-export function validateQuestionsArray(data) {
-  if (!Array.isArray(data)) return { ok: false, error: "Expected array" };
-  const itemSchema = /** @type {any} */ (QUIZ_JSON_SCHEMA.properties.questions).items;
-  const checkOne = ajv.compile(itemSchema);
-  for (let i = 0; i < data.length; i++) {
-    if (!checkOne(data[i])) {
-      return {
-        ok: false,
-        error: `Item ${i}: ${ajv.errorsText(checkOne.errors, { separator: " | " })}`,
-      };
-    }
-    const sem = semanticQuizChecks({ schemaVersion: 2, title: "x", difficultyLevel: 3, questions: [data[i]] });
-    if (sem) return { ok: false, error: `Item ${i}: ${sem}` };
-  }
-  return { ok: true, questions: data };
-}
-
-/**
- * @typedef {{
- *   topic: string,
- *   gradeLevel: string,
- *   questionCount: number,
- *   difficultyLevel: number,
- *   questionTypes: string[],
- *   adaptive: { weakTopics?: string[], lastScorePercent?: number } | null,
- * }} NormalizedGenerateParams
- */
-
-/**
- * Validate incoming HTTP JSON body for quiz generation.
- * @param {unknown} body
- * @returns {{ ok: true, params: NormalizedGenerateParams } | { ok: false, error: string }}
- */
-export function validateGenerateQuizBody(body) {
-  if (!body || typeof body !== "object") {
-    return { ok: false, error: "Body must be a JSON object" };
-  }
-  const b = /** @type {Record<string, unknown>} */ (body);
-  const rawTopic =
-    (typeof b.topic === "string" && b.topic) ||
-    (typeof b.source === "string" && b.source) ||
-    (typeof b.sourceMaterial === "string" && b.sourceMaterial) ||
-    "";
-  const topic = rawTopic.trim();
-  if (!topic) return { ok: false, error: "Missing topic (or legacy field source)" };
-
-  const gradeLevel =
-    typeof b.gradeLevel === "string" && b.gradeLevel.trim()
-      ? b.gradeLevel.trim().slice(0, 80)
-      : "General";
-
-  const questionCount = Number(b.questionCount);
-  if (!Number.isInteger(questionCount) || questionCount < 1 || questionCount > 20) {
-    return { ok: false, error: "questionCount must be integer 1-20" };
-  }
-
-  const difficultyLevel = Number(b.difficultyLevel);
-  if (!Number.isInteger(difficultyLevel) || difficultyLevel < 1 || difficultyLevel > 5) {
-    return { ok: false, error: "difficultyLevel must be integer 1-5" };
-  }
-
-  let questionTypes = b.questionTypes;
-  if (!Array.isArray(questionTypes) || questionTypes.length === 0) {
-    questionTypes = ["mcq"];
-  }
-  const types = [];
-  for (const t of questionTypes) {
-    if (typeof t !== "string") return { ok: false, error: "questionTypes must be strings" };
-    if (!ALLOWED_TYPES.includes(t)) {
-      return { ok: false, error: `Invalid question type: ${t}` };
-    }
-    types.push(t);
-  }
-  if (types.length > 4) {
-    return { ok: false, error: "At most 4 distinct questionTypes entries" };
-  }
-
-  let adaptive = null;
-  if (b.adaptive && typeof b.adaptive === "object") {
-    const a = /** @type {Record<string, unknown>} */ (b.adaptive);
-    const weakTopics = Array.isArray(a.weakTopics)
-      ? a.weakTopics.filter((x) => typeof x === "string").map((x) => String(x).slice(0, 120)).slice(0, 10)
-      : [];
-    const lastScorePercent =
-      typeof a.lastScorePercent === "number" && Number.isFinite(a.lastScorePercent)
-        ? a.lastScorePercent
-        : undefined;
-    adaptive = { weakTopics, lastScorePercent };
-  }
-
-  return {
-    ok: true,
-    params: {
-      topic: topic.slice(0, 12000),
-      gradeLevel,
-      questionCount,
-      difficultyLevel,
-      questionTypes: [...new Set(types)],
-      adaptive,
-    },
-  };
-}
-
-export { QUIZ_JSON_SCHEMA };
